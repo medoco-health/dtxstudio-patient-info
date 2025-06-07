@@ -147,18 +147,26 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
 
                         # Store old values for logging
                         old_pms_id = row.get('pms_id', '')
+                        old_practice_pms_id = row.get('practice_pms_id', '')
+                        old_dicom_id = row.get('dicom_id', '')
                         old_given_name = row.get('given_name', '')
                         old_family_name = row.get('family_name', '')
                         old_middle_name = row.get('middle_name', '')
 
                         # Get new values from PMS
                         new_pms_id = pms_data['custom_identifier']
+                        # Set same as pms_id
+                        new_practice_pms_id = pms_data['custom_identifier']
+                        # Set same as pms_id
+                        new_dicom_id = pms_data['custom_identifier']
                         new_given_name = pms_data['first_name']
                         new_family_name = pms_data['last_name']
                         new_middle_name = pms_data['middle_initial']
 
                         # Check if any fields need updating
                         needs_update = (old_pms_id != new_pms_id or
+                                        old_practice_pms_id != new_practice_pms_id or
+                                        old_dicom_id != new_dicom_id or
                                         old_given_name != new_given_name or
                                         old_family_name != new_family_name or
                                         old_middle_name != new_middle_name)
@@ -166,6 +174,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         if needs_update:
                             # Update all fields
                             row['pms_id'] = new_pms_id
+                            row['practice_pms_id'] = new_practice_pms_id
+                            row['dicom_id'] = new_dicom_id
                             row['given_name'] = new_given_name
                             row['family_name'] = new_family_name
                             row['middle_name'] = new_middle_name
@@ -175,6 +185,12 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                             if old_pms_id != new_pms_id:
                                 changes.append(
                                     f"pms_id: '{old_pms_id}' -> '{new_pms_id}'")
+                            if old_practice_pms_id != new_practice_pms_id:
+                                changes.append(
+                                    f"practice_pms_id: '{old_practice_pms_id}' -> '{new_practice_pms_id}'")
+                            if old_dicom_id != new_dicom_id:
+                                changes.append(
+                                    f"dicom_id: '{old_dicom_id}' -> '{new_dicom_id}'")
                             if old_given_name != new_given_name:
                                 changes.append(
                                     f"given_name: '{old_given_name}' -> '{new_given_name}'")
