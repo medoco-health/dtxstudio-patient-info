@@ -452,7 +452,7 @@ def extract_gender_from_codice_fiscale(ssn: str) -> Optional[str]:
         ssn: The codice fiscale string
 
     Returns:
-        'M' for male, 'F' for female, None if invalid or can't determine
+        'MALE' for male, 'FEMALE' for female, None if invalid or can't determine
     """
     if not ssn or len(ssn) < 11:
         return None
@@ -464,9 +464,9 @@ def extract_gender_from_codice_fiscale(ssn: str) -> Optional[str]:
 
         # For females, day is encoded with +40 offset
         if 41 <= day_number <= 71:
-            return 'F'  # Female (day - 40 gives actual day 1-31)
+            return 'FEMALE'  # Female (day - 40 gives actual day 1-31)
         elif 1 <= day_number <= 31:
-            return 'M'  # Male (actual day)
+            return 'MALE'  # Male (actual day)
         else:
             return None  # Invalid day
 

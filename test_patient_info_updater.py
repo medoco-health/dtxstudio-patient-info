@@ -32,37 +32,37 @@ class TestExtractGenderFromCodiceFiscale(unittest.TestCase):
         """Test extraction of male gender from valid codice fiscale."""
         result = extract_gender_from_codice_fiscale(self.VALID_MALE_CF)
         self.assertEqual(
-            result, 'M', f"Expected 'M' for male CF: {self.VALID_MALE_CF}")
+            result, 'MALE', f"Expected 'MALE' for male CF: {self.VALID_MALE_CF}")
 
     def test_valid_female_codice_fiscale(self):
         """Test extraction of female gender from valid codice fiscale."""
         result = extract_gender_from_codice_fiscale(self.VALID_FEMALE_CF)
         self.assertEqual(
-            result, 'F', f"Expected 'F' for female CF: {self.VALID_FEMALE_CF}")
+            result, 'FEMALE', f"Expected 'FEMALE' for female CF: {self.VALID_FEMALE_CF}")
 
     def test_male_edge_cases(self):
         """Test male gender extraction for edge cases (day 01 and 31)."""
         # Test day 01
         result = extract_gender_from_codice_fiscale(self.MALE_CF_DAY_01)
         self.assertEqual(
-            result, 'M', f"Expected 'M' for male CF with day 01: {self.MALE_CF_DAY_01}")
+            result, 'MALE', f"Expected 'MALE' for male CF with day 01: {self.MALE_CF_DAY_01}")
 
         # Test day 31
         result = extract_gender_from_codice_fiscale(self.MALE_CF_DAY_31)
         self.assertEqual(
-            result, 'M', f"Expected 'M' for male CF with day 31: {self.MALE_CF_DAY_31}")
+            result, 'MALE', f"Expected 'MALE' for male CF with day 31: {self.MALE_CF_DAY_31}")
 
     def test_female_edge_cases(self):
         """Test female gender extraction for edge cases (day 41 and 71)."""
         # Test day 41 (day 01 + 40)
         result = extract_gender_from_codice_fiscale(self.FEMALE_CF_DAY_41)
         self.assertEqual(
-            result, 'F', f"Expected 'F' for female CF with day 41: {self.FEMALE_CF_DAY_41}")
+            result, 'FEMALE', f"Expected 'FEMALE' for female CF with day 41: {self.FEMALE_CF_DAY_41}")
 
         # Test day 71 (day 31 + 40)
         result = extract_gender_from_codice_fiscale(self.FEMALE_CF_DAY_71)
         self.assertEqual(
-            result, 'F', f"Expected 'F' for female CF with day 71: {self.FEMALE_CF_DAY_71}")
+            result, 'FEMALE', f"Expected 'FEMALE' for female CF with day 71: {self.FEMALE_CF_DAY_71}")
 
     def test_invalid_inputs(self):
         """Test function behavior with invalid inputs."""
@@ -125,12 +125,12 @@ class TestExtractGenderFromCodiceFiscale(unittest.TestCase):
         valid_11_char_male = "RSSMRA85A02"
         result = extract_gender_from_codice_fiscale(valid_11_char_male)
         self.assertEqual(
-            result, 'M', f"Expected 'M' for 11-char male CF: {valid_11_char_male}")
+            result, 'MALE', f"Expected 'MALE' for 11-char male CF: {valid_11_char_male}")
 
         valid_11_char_female = "RSSMRA85A42"
         result = extract_gender_from_codice_fiscale(valid_11_char_female)
         self.assertEqual(
-            result, 'F', f"Expected 'F' for 11-char female CF: {valid_11_char_female}")
+            result, 'FEMALE', f"Expected 'FEMALE' for 11-char female CF: {valid_11_char_female}")
 
 
 if __name__ == '__main__':
