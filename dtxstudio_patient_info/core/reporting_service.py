@@ -16,14 +16,16 @@ class ClinicalReportingService:
     @staticmethod
     def generate_audit_report(stats: SessionStatistics, manual_review_queue: List[dict]):
         """Generate comprehensive clinical audit report."""
-        print("\n" + "="*70, file=sys.stderr)
-        print("CLINICAL PATIENT MATCHING AUDIT REPORT", file=sys.stderr)
-        print("="*70, file=sys.stderr)
+        import logging
         
-        ClinicalReportingService._print_overall_statistics(stats)
-        ClinicalReportingService._print_confidence_distribution(stats)
-        ClinicalReportingService._print_correction_types(stats)
-        ClinicalReportingService._print_manual_review_queue(manual_review_queue)
+        logging.info("=" * 70)
+        logging.info("CLINICAL PATIENT MATCHING AUDIT REPORT")
+        logging.info("=" * 70)
+        
+        ClinicalReportingService._log_overall_statistics(stats)
+        ClinicalReportingService._log_confidence_distribution(stats)
+        ClinicalReportingService._log_correction_types(stats)
+        ClinicalReportingService._log_manual_review_queue(manual_review_queue)
     
     @staticmethod
     def _print_overall_statistics(stats: SessionStatistics):
@@ -79,8 +81,65 @@ class ClinicalReportingService:
             print(f"... and {len(manual_review_queue) - 10} more items", file=sys.stderr)
     
     @staticmethod
+    def _log_overall_statistics(stats: SessionStatistics):
+        """Log overall statistics section."""
+        import logging
+        logging.info(f"OVERALL STATISTICS:")
+        logging.info(f"Total records processed: {stats.total_processed:,}")
+        logging.info(f"Automatic matches: {stats.auto_matched:,} ({stats.get_auto_match_rate():.1%})")
+        
+        manual_review_rate = (stats.manual_review_required / stats.total_processed 
+                            if stats.total_processed > 0 else 0)
+        logging.info(f"Manual review required: {stats.manual_review_required:,} ({manual_review_rate:.1%})")
+        
+        no_match_rate = (stats.no_matches / stats.total_processed 
+                        if stats.total_processed > 0 else 0)
+        logging.info(f"No matches found: {stats.no_matches:,} ({no_match_rate:.1%})")
+    
+    @staticmethod
+    def _log_confidence_distribution(stats: SessionStatistics):
+        """Log confidence level distribution."""
+        import logging
+        logging.info(f"CONFIDENCE LEVEL DISTRIBUTION:")
+        logging.info(f"  Gold standard (100%): {stats.gold_standard_matches:,}")
+        logging.info(f"  High confidence (95-99%): {stats.high_confidence_matches:,}")
+        logging.info(f"  Moderate confidence (80-95%): {stats.moderate_confidence_matches:,}")
+        logging.info(f"  Acceptable confidence (70-80%): {stats.acceptable_confidence_matches:,}")
+    
+    @staticmethod
+    def _log_correction_types(stats: SessionStatistics):
+        """Log correction type distribution."""
+        import logging
+        logging.info(f"CORRECTION TYPE DISTRIBUTION:")
+        logging.info(f"  Gender corrections: {stats.gender_corrections:,}")
+        logging.info(f"  Date corrections: {stats.date_corrections:,}")
+        logging.info(f"  Name flips corrected: {stats.name_flips:,}")
+        logging.info(f"  Partial name matches: {stats.partial_name_matches:,}")
+        logging.info(f"  PMS gender errors corrected: {stats.pms_gender_errors:,}")
+    
+    @staticmethod
+    def _log_manual_review_queue(manual_review_queue: List[dict]):
+        """Log manual review queue details."""
+        import logging
+        if not manual_review_queue:
+            return
+            
+        logging.info(f"MANUAL REVIEW QUEUE ({len(manual_review_queue)} items):")
+        logging.info("-" * 50)
+        
+        for i, item in enumerate(manual_review_queue[:10], 1):
+            dtx = item['dtx_record']
+            result = item['match_result']
+            logging.info(f"{i:2d}. {dtx.get('given_name', ''):<15} {dtx.get('family_name', ''):<15} | "
+                  f"Match: {result.match_type.value:<20} | "
+                  f"Confidence: {result.confidence_score:.1%}")
+        
+        if len(manual_review_queue) > 10:
+            logging.info(f"... and {len(manual_review_queue) - 10} more items")
+
+    @staticmethod
     def print_session_summary(stats: SessionStatistics):
-        """Print final session summary."""
+        """Print final session summary to stderr only."""
         print(f"\n🏥 Clinical processing complete!", file=sys.stderr)
         print(f"Match rate: {stats.get_match_rate():.1%} | "
               f"Auto-match rate: {stats.get_auto_match_rate():.1%}", file=sys.stderr)

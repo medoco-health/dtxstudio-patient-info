@@ -8,6 +8,7 @@ and processing workflows.
 import csv
 import logging
 from typing import Dict, List, Optional, Tuple, Union
+from tqdm import tqdm
 
 from .patient_matcher import ClinicalPatientMatcher
 from .data_models import SessionStatistics
@@ -118,15 +119,24 @@ class ClinicalMatchingService:
             reader = csv.DictReader(infile)
             fieldnames = list(reader.fieldnames or [])
 
-            # Process records
-            processed_records = []
-            for row in reader:
+            # Count total records for progress bar
+            rows = list(reader)
+            total_records = len(rows)
+
+        # Process records with progress bar
+        processed_records = []
+        with tqdm(total=total_records, desc="Processing DTX records", unit="records") as pbar:
+            for row in rows:
                 updated_row = self._process_dtx_record(row, pms_lookup)
                 processed_records.append(updated_row)
+                pbar.update(1)
 
         # Write output
         if output_file:
             self._write_output_file(output_file, fieldnames, processed_records)
+            logging.info(f"Output written to: {output_file}")
+        else:
+            self._write_to_stdout(fieldnames, processed_records)
 
         return self.matcher.get_session_statistics()
 
@@ -248,3 +258,10 @@ class ClinicalMatchingService:
             writer = csv.DictWriter(outfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(records)
+
+    def _write_to_stdout(self, fieldnames: List[str], records: List[dict]):
+        """Write processed records to stdout."""
+        import sys
+        writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(records)

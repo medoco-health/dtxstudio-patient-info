@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dtxstudio-patient-info"
-version = "2.0.0"
+version = "1.0.0"
 authors = [
     {name = "Clinical Informatics Team", email = "info@medoco.it"},
 ]
@@ -26,27 +26,8 @@ classifiers = [
 ]
 keywords = ["healthcare", "patient-matching", "clinical-informatics", "dtx", "pms", "record-linkage"]
 dependencies = [
-    # No external dependencies - pure Python for maximum compatibility
+    "tqdm (>=4.67.1,<5.0.0)"
 ]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "black>=22.0",
-    "flake8>=5.0",
-    "mypy>=1.0",
-]
-test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-]
-
-[project.urls]
-Homepage = "https://github.com/medoco/dtxstudio-patient-info"
-Documentation = "https://github.com/medoco/dtxstudio-patient-info/blob/main/README.md"
-Repository = "https://github.com/medoco/dtxstudio-patient-info.git"
-"Bug Tracker" = "https://github.com/medoco/dtxstudio-patient-info/issues"
 
 [project.scripts]
 # Main entrypoints

@@ -15,7 +15,7 @@ import sys
 from dtxstudio_patient_info.core.controller import ClinicalMatchingController
 
 
-def setup_logging(verbose: bool = False):
+def setup_logging(verbose: bool = False, log_file: str = "clinical_matching.log"):
     """Setup logging configuration."""
     level = logging.DEBUG if verbose else logging.INFO
     format_str = '%(asctime)s - %(levelname)s - %(message)s'
@@ -24,9 +24,15 @@ def setup_logging(verbose: bool = False):
         level=level,
         format=format_str,
         handlers=[
+            logging.FileHandler(log_file, encoding='utf-8'),
+            # Only add stderr handler for critical errors
             logging.StreamHandler(sys.stderr)
         ]
     )
+    
+    # Set stderr handler to only show ERROR and CRITICAL
+    stderr_handler = logging.getLogger().handlers[-1]
+    stderr_handler.setLevel(logging.ERROR)
 
 
 def main():
@@ -50,13 +56,15 @@ Examples:
                         help='Minimum confidence for automatic matching (default: 0.70)')
     parser.add_argument('--verbose', action='store_true',
                         help='Enable verbose logging')
+    parser.add_argument('--log-file', default='clinical_matching.log',
+                        help='Log file path (default: clinical_matching.log)')
     parser.add_argument('--audit-only', action='store_true',
                         help='Generate audit report only, no output file')
 
     args = parser.parse_args()
 
     # Setup logging
-    setup_logging(args.verbose)
+    setup_logging(args.verbose, args.log_file)
 
     # Determine output file
     output_file = None if args.audit_only else args.output

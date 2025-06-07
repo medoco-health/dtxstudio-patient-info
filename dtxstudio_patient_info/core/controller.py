@@ -54,15 +54,13 @@ class ClinicalMatchingController:
             logging.info("🏥 Starting clinical patient matching workflow")
             pms_lookup = self.service.load_pms_data(pms_file)
 
-            # Log readiness
-            print("🏥 Clinical patient matching framework ready!", file=sys.stderr)
-            print(f"Loaded {len(pms_lookup)} PMS lookup keys", file=sys.stderr)
-            print(
-                f"Confidence threshold: {self.confidence_threshold:.1%}", file=sys.stderr)
+            # Log readiness (only to log file)
+            logging.info("🏥 Clinical patient matching framework ready!")
+            logging.info(f"Loaded {len(pms_lookup)} PMS lookup keys")
+            logging.info(f"Confidence threshold: {self.confidence_threshold:.1%}")
 
             if output_file is None:
-                print("Audit-only mode: No output file will be generated",
-                      file=sys.stderr)
+                logging.info("Audit-only mode: No output file will be generated")
 
             # Process DTX file
             stats = self.service.process_dtx_file(
