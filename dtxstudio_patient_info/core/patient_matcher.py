@@ -207,8 +207,7 @@ class ClinicalPatientMatcher:
 
             return MatchResult(
                 match_found=True,
-                pms_data=PatientRecord(
-                    **pms_data) if isinstance(pms_data, dict) else pms_data,
+                pms_data=pms_data,  # Keep as dict, don't convert to PatientRecord
                 confidence_score=adjusted_confidence,
                 match_type=MatchType(strategy.name),
                 requires_manual_review=requires_review,

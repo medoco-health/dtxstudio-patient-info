@@ -6,7 +6,7 @@ clinical patient matching system, following healthcare informatics standards.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from enum import Enum
 
 
@@ -70,7 +70,7 @@ class PatientRecord:
 class MatchResult:
     """Result of patient matching operation."""
     match_found: bool
-    pms_data: Optional[PatientRecord]
+    pms_data: Optional[Union[PatientRecord, Dict[str, Any]]]
     confidence_score: float
     match_type: MatchType
     requires_manual_review: bool
