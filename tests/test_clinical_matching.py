@@ -4,9 +4,9 @@ Comprehensive test suite for the clinical matching framework.
 Tests all matching strategies, edge cases, and clinical data quality scenarios.
 """
 
-from dtxstudio_patient_info.utils.italian_cf import extract_gender_from_codice_fiscale, validate_codice_fiscale_gender
-from dtxstudio_patient_info.utils.key_builders import create_exact_match_key, create_flipped_exact_key
-from dtxstudio_patient_info.utils.normalizers import normalize_string, normalize_date, is_partial_name_match
+from dtxstudio_patient_info.utils.italian_cf import extract_gender_from_codice_fiscale
+from dtxstudio_patient_info.utils.key_builders import create_exact_match_key
+from dtxstudio_patient_info.utils.normalizers import normalize_string, normalize_date
 from dtxstudio_patient_info.core.data_models import PatientRecord, MatchType
 from dtxstudio_patient_info.core.patient_matcher import ClinicalPatientMatcher
 import unittest
