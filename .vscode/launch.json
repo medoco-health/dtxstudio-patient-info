@@ -1,0 +1,82 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Clinical Matcher: Real Data",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dtxstudio_patient_info/main.py",
+            "args": [
+                "./real_data/PatientInfo_2025-06-06T16_56_55.025.csv",
+                "./real_data/tops_patients.csv",
+                "-o",
+                "./real_data/updated_patients.csv",
+                "--verbose"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Clinical Matcher: Audit Only",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dtxstudio_patient_info/main.py",
+            "args": [
+                "./real_data/PatientInfo_2025-06-06T16_56_55.025.csv",
+                "./real_data/tops_patients.csv",
+                "--audit-only",
+                "--verbose"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Clinical Matcher: High Confidence",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dtxstudio_patient_info/main.py",
+            "args": [
+                "./real_data/PatientInfo_2025-06-06T16_56_55.025.csv",
+                "./real_data/tops_patients.csv",
+                "-o",
+                "./real_data/high_confidence_matches.csv",
+                "--confidence-threshold",
+                "0.85",
+                "--verbose"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Clinical Matcher: Conservative",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/dtxstudio_patient_info/main.py",
+            "args": [
+                "./real_data/PatientInfo_2025-06-06T16_56_55.025.csv",
+                "./real_data/tops_patients.csv",
+                "-o",
+                "./real_data/conservative_matches.csv",
+                "--confidence-threshold",
+                "0.95"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
