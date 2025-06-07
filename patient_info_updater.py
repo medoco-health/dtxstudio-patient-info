@@ -10,6 +10,7 @@ pms_id field with the custom_identifier from the PMS file.
 import csv
 import argparse
 import sys
+import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
 import re
@@ -75,13 +76,13 @@ def load_pms_data(pms_file: str) -> Dict[str, str]:
                     pms_lookup[match_key] = custom_identifier
 
     except FileNotFoundError:
-        print(f"Error: PMS file '{pms_file}' not found.")
+        logging.error(f"PMS file '{pms_file}' not found.")
         sys.exit(1)
     except Exception as e:
-        print(f"Error reading PMS file: {e}")
+        logging.error(f"Error reading PMS file: {e}")
         sys.exit(1)
 
-    print(f"Loaded {len(pms_lookup)} records from PMS file.")
+    logging.info(f"Loaded {len(pms_lookup)} records from PMS file.")
     return pms_lookup
 
 
@@ -104,7 +105,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
             # Get the original fieldnames and write header
             fieldnames = reader.fieldnames
             if not fieldnames:
-                print("Error: No fieldnames found in DTX file.", file=sys.stderr)
+                logging.error("No fieldnames found in DTX file.")
                 return
 
             # Use stdout or file based on output_file parameter
@@ -132,11 +133,16 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
 
                     # Check for match in PMS data
                     if match_key in pms_lookup:
+                        # Store old value for logging
+                        old_pms_id = row.get('pms_id', '')
+                        new_pms_id = pms_lookup[match_key]
+                        
                         # Update pms_id with custom_identifier from PMS
-                        row['pms_id'] = pms_lookup[match_key]
+                        row['pms_id'] = new_pms_id
                         matches_found += 1
-                        print(
-                            f"Match found: {given_name} {family_name} -> {pms_lookup[match_key]}", file=sys.stderr)
+                        
+                        # Log the change with old and new values
+                        logging.info(f"Match found: {given_name} {family_name} - Changed pms_id: '{old_pms_id}' -> '{new_pms_id}'")
 
                     # Write the row (modified or original)
                     writer.writerow(row)
@@ -147,13 +153,14 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
                     outfile.close()
 
     except FileNotFoundError:
-        print(f"Error: DTX file '{dtx_file}' not found.", file=sys.stderr)
+        logging.error(f"DTX file '{dtx_file}' not found.")
         sys.exit(1)
     except Exception as e:
-        print(f"Error processing DTX file: {e}", file=sys.stderr)
+        logging.error(f"Error processing DTX file: {e}")
         sys.exit(1)
 
     # Print stats to stderr so they don't interfere with CSV output to stdout
+    logging.info(f"Processing complete: {total_records} records processed, {matches_found} matches found and updated")
     print(f"\nProcessing complete:", file=sys.stderr)
     print(f"Total records processed: {total_records}", file=sys.stderr)
     print(f"Matches found and updated: {matches_found}", file=sys.stderr)
@@ -184,6 +191,14 @@ Examples:
 
     args = parser.parse_args()
 
+    # Configure logging
+    log_level = logging.INFO if args.verbose else logging.WARNING
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+
     if args.verbose:
         print(f"DTX file: {args.dtx_file}")
         print(f"PMS file: {args.pms_file}")
@@ -191,14 +206,14 @@ Examples:
         print()
 
     # Load PMS data for lookup
-    print("Loading PMS reference data...")
+    logging.info("Loading PMS reference data...")
     pms_lookup = load_pms_data(args.pms_file)
 
     # Process DTX file and create updated output
-    print("Processing DTX file...")
+    logging.info("Processing DTX file...")
     process_dtx_file(args.dtx_file, pms_lookup, args.output)
 
-    print("Done!")
+    logging.info("Done!")
 
 
 if __name__ == "__main__":
