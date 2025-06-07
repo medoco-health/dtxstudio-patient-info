@@ -51,6 +51,80 @@ def create_loose_match_key(family_name: str, given_name: str, dob: str) -> str:
     return f"{normalize_string(family_name)}|{normalize_string(given_name)}|{normalize_date(dob)}"
 
 
+def create_name_only_match_key(family_name: str, given_name: str) -> str:
+    """Create a normalized key for name-only matching (for fuzzy date matching)."""
+    return f"{normalize_string(family_name)}|{normalize_string(given_name)}"
+
+
+def calculate_digit_similarity(date1: str, date2: str) -> float:
+    """
+    Calculate similarity between two dates based on digit differences.
+    Returns a score from 0.0 (completely different) to 1.0 (identical).
+    """
+    if not date1 or not date2:
+        return 0.0
+
+    # Normalize dates to YYYY-MM-DD format
+    norm_date1 = normalize_date(date1)
+    norm_date2 = normalize_date(date2)
+
+    if norm_date1 == norm_date2:
+        return 1.0
+
+    # Remove hyphens for digit comparison
+    digits1 = norm_date1.replace('-', '')
+    digits2 = norm_date2.replace('-', '')
+
+    if len(digits1) != len(digits2) or len(digits1) != 8:
+        return 0.0
+
+    # Define similar digits (visually or by proximity on keyboard)
+    similar_digits = {
+        '0': ['0', '8', 'o', 'O'],
+        '1': ['1', 'l', 'I', '|'],
+        '2': ['2', 'z', 'Z'],
+        '3': ['3', '8'],
+        '4': ['4', 'A'],
+        '5': ['5', 'S', 's'],
+        '6': ['6', 'G'],
+        '7': ['7', 'T'],
+        '8': ['8', '0', '3', 'B'],
+        '9': ['9', 'g', 'q']
+    }
+
+    matches = 0
+    partial_matches = 0
+
+    for i in range(len(digits1)):
+        d1, d2 = digits1[i], digits2[i]
+        if d1 == d2:
+            matches += 1
+        elif d1 in similar_digits.get(d2, []) or d2 in similar_digits.get(d1, []):
+            partial_matches += 1
+
+    # Calculate similarity score
+    total_positions = len(digits1)
+    similarity = (matches + 0.5 * partial_matches) / total_positions
+
+    return similarity
+
+
+def is_fuzzy_date_match(date1: str, date2: str, threshold: float = 0.75) -> bool:
+    """
+    Check if two dates are similar enough to be considered a fuzzy match.
+
+    Args:
+        date1: First date string
+        date2: Second date string
+        threshold: Minimum similarity score (0.75 means 75% similarity)
+
+    Returns:
+        True if dates are similar enough to be considered a match
+    """
+    similarity = calculate_digit_similarity(date1, date2)
+    return similarity >= threshold
+
+
 def load_pms_data(pms_file: str) -> Dict[str, dict]:
     """
     Load PMS CSV data and create a lookup dictionary.
@@ -83,6 +157,9 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                     # Also store with loose match key (without gender)
                     loose_match_key = create_loose_match_key(
                         family_name, given_name, dob)
+                    # Store with name-only key for fuzzy date matching
+                    name_only_key = create_name_only_match_key(
+                        family_name, given_name)
 
                     # Store all the data we want to update
                     pms_data = {
@@ -90,13 +167,25 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         'first_name': given_name,
                         'last_name': family_name,
                         'middle_initial': middle_name,
-                        'gender': sex
+                        'gender': sex,
+                        'dob': dob
                     }
 
                     pms_lookup[match_key] = pms_data
                     # Also store under loose key if not already present
                     if loose_match_key not in pms_lookup:
                         pms_lookup[loose_match_key] = pms_data
+
+                    # Store under name-only key for fuzzy date matching
+                    if name_only_key not in pms_lookup:
+                        pms_lookup[name_only_key] = pms_data
+                    elif isinstance(pms_lookup[name_only_key], dict):
+                        # Convert to list if we have multiple candidates
+                        pms_lookup[name_only_key] = [
+                            pms_lookup[name_only_key], pms_data]
+                    elif isinstance(pms_lookup[name_only_key], list):
+                        # Add to existing list
+                        pms_lookup[name_only_key].append(pms_data)
 
     except FileNotFoundError:
         logging.error(f"PMS file '{pms_file}' not found.")
@@ -121,6 +210,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
     matches_found = 0
     records_updated = 0
     records_unchanged = 0
+    gender_mismatches = 0
+    date_corrections = 0
     total_records = 0
 
     try:
@@ -156,19 +247,41 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     match_key = create_match_key(
                         family_name, given_name, sex, dob)
                     loose_match_key = create_loose_match_key(
-                        family_name, given_name, dob)
-
-                    # Check for match in PMS data (exact match first, then loose match)
+                        family_name, given_name, dob)                    # Check for match in PMS data (exact match first, then loose match, then fuzzy)
                     pms_data = None
                     is_gender_mismatch = False
+                    is_date_correction = False
+                    match_type = None
 
                     if match_key in pms_lookup:
                         # Exact match (including gender)
                         pms_data = pms_lookup[match_key]
+                        match_type = "exact"
                     elif loose_match_key in pms_lookup:
                         # Loose match (names and DOB match, but gender might differ)
                         pms_data = pms_lookup[loose_match_key]
                         is_gender_mismatch = (sex != pms_data['gender'])
+                        match_type = "loose"
+                    else:
+                        # Try fuzzy date matching (names match, dates similar)
+                        name_only_key = create_name_only_match_key(
+                            family_name, given_name)
+                        if name_only_key in pms_lookup:
+                            candidates = pms_lookup[name_only_key]
+                            if isinstance(candidates, dict):
+                                candidates = [candidates]
+                            elif not isinstance(candidates, list):
+                                candidates = []
+
+                            # Check each candidate for fuzzy date match
+                            for candidate in candidates:
+                                if is_fuzzy_date_match(dob, candidate['dob']):
+                                    pms_data = candidate
+                                    is_gender_mismatch = (
+                                        sex != pms_data['gender'])
+                                    is_date_correction = True
+                                    match_type = "fuzzy_date"
+                                    break  # Take first fuzzy match
 
                     if pms_data:
                         matches_found += 1
@@ -181,6 +294,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         old_family_name = row.get('family_name', '')
                         old_middle_name = row.get('middle_name', '')
                         old_sex = row.get('sex', '')
+                        old_dob = row.get('dob', '')
 
                         # Get new values from PMS
                         new_pms_id = pms_data['custom_identifier']
@@ -192,6 +306,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         new_family_name = pms_data['last_name']
                         new_middle_name = pms_data['middle_initial']
                         new_sex = pms_data['gender']
+                        new_dob = pms_data['dob']
 
                         # Check if any fields need updating
                         needs_update = (old_pms_id != new_pms_id or
@@ -200,7 +315,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                         old_given_name != new_given_name or
                                         old_family_name != new_family_name or
                                         old_middle_name != new_middle_name or
-                                        old_sex != new_sex)
+                                        old_sex != new_sex or
+                                        old_dob != new_dob)
 
                         if needs_update:
                             # Update all fields
@@ -211,8 +327,16 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                             row['family_name'] = new_family_name
                             row['middle_name'] = new_middle_name
                             row['sex'] = new_sex
+                            row['dob'] = new_dob
 
                             records_updated += 1
+
+                            # Count specific types of corrections
+                            if is_gender_mismatch:
+                                gender_mismatches += 1
+                            if is_date_correction:
+                                date_corrections += 1
+
                             changes = []
                             if old_pms_id != new_pms_id:
                                 changes.append(
@@ -235,19 +359,36 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                             if old_sex != new_sex:
                                 changes.append(
                                     f"sex: '{old_sex}' -> '{new_sex}'")
+                            if old_dob != new_dob:
+                                changes.append(
+                                    f"dob: '{old_dob}' -> '{new_dob}'")
 
-                            # Log with appropriate level based on gender mismatch
+                            # Log with appropriate level based on match type
+                            log_prefix = []
                             if is_gender_mismatch:
+                                log_prefix.append("GENDER MISMATCH")
+                            if is_date_correction:
+                                log_prefix.append("DATE CORRECTION")
+
+                            prefix_str = " - ".join(log_prefix)
+                            if prefix_str:
                                 logging.warning(
-                                    f"GENDER MISMATCH - Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
+                                    f"{prefix_str} - Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
                             else:
                                 logging.info(
                                     f"Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
                         else:
                             records_unchanged += 1
+                            log_prefix = []
                             if is_gender_mismatch:
+                                log_prefix.append("GENDER MISMATCH")
+                            if is_date_correction:
+                                log_prefix.append("DATE CORRECTION")
+
+                            prefix_str = " - ".join(log_prefix)
+                            if prefix_str:
                                 logging.warning(
-                                    f"GENDER MISMATCH - Unchanged: {old_given_name} {old_family_name} - DTX sex: '{old_sex}', PMS sex: '{new_sex}' - all other fields already correct")
+                                    f"{prefix_str} - Unchanged: {old_given_name} {old_family_name} - DTX vs PMS differences detected but all fields already correct")
                             else:
                                 logging.debug(
                                     f"Unchanged: {old_given_name} {old_family_name} - all fields already correct")
@@ -269,13 +410,15 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
 
     # Print stats to stderr so they don't interfere with CSV output to stdout
     logging.info(
-        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged")
+        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections")
     print(f"\nProcessing complete:", file=sys.stderr)
     print(f"Total records processed: {total_records}", file=sys.stderr)
     print(f"Matches found: {matches_found}", file=sys.stderr)
     print(f"Records updated: {records_updated}", file=sys.stderr)
     print(
         f"Records unchanged (already correct): {records_unchanged}", file=sys.stderr)
+    print(f"Gender corrections: {gender_mismatches}", file=sys.stderr)
+    print(f"Date corrections: {date_corrections}", file=sys.stderr)
     if output_file:
         print(f"Output written to: {output_file}", file=sys.stderr)
 
