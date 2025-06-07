@@ -66,6 +66,16 @@ def create_flipped_loose_match_key(family_name: str, given_name: str, dob: str) 
     return f"{normalize_string(given_name)}|{normalize_string(family_name)}|{normalize_date(dob)}"
 
 
+def create_partial_match_key(family_name: str, given_name: str, sex: str, dob: str) -> str:
+    """Create a normalized key for partial name matching (PMS names without suffixes)."""
+    return f"{normalize_string(family_name)}|{normalize_string(given_name)}|{normalize_string(sex)}|{normalize_date(dob)}"
+
+
+def create_partial_loose_match_key(family_name: str, given_name: str, dob: str) -> str:
+    """Create a normalized key for partial loose matching (without gender)."""
+    return f"{normalize_string(family_name)}|{normalize_string(given_name)}|{normalize_date(dob)}"
+
+
 def calculate_digit_similarity(date1: str, date2: str) -> float:
     """
     Calculate similarity between two dates based on digit differences.
@@ -219,7 +229,8 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         pms_lookup[name_only_key].append(pms_data)
 
                     # Store under flipped name-only key for fuzzy matching as well
-                    flipped_name_only_key = create_name_only_match_key(given_name, family_name)  # Flipped order
+                    flipped_name_only_key = create_name_only_match_key(
+                        given_name, family_name)  # Flipped order
                     if flipped_name_only_key not in pms_lookup:
                         pms_lookup[flipped_name_only_key] = pms_data
                     elif isinstance(pms_lookup[flipped_name_only_key], dict):
@@ -262,6 +273,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
     gender_mismatches = 0
     date_corrections = 0
     name_flips = 0
+    partial_name_matches = 0
     pms_gender_errors = 0
     total_records = 0
 
@@ -306,11 +318,18 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     flipped_loose_match_key = create_flipped_loose_match_key(
                         family_name, given_name, dob)
 
-                    # Check for match in PMS data (exact match first, then loose match, then flipped, then fuzzy)
+                    # Create partial match keys (for PMS names without suffixes)
+                    partial_match_key = create_partial_match_key(
+                        family_name, given_name, sex, dob)
+                    partial_loose_match_key = create_partial_loose_match_key(
+                        family_name, given_name, dob)
+
+                    # Check for match in PMS data (exact match first, then loose match, then flipped, then partial, then fuzzy)
                     pms_data = None
                     is_gender_mismatch = False
                     is_date_correction = False
                     is_name_flip = False
+                    is_partial_match = False
                     match_type = None
 
                     if match_key in pms_lookup:
@@ -334,25 +353,54 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         is_name_flip = True
                         match_type = "flipped_loose"
                     else:
-                        # Try fuzzy date matching (names match, dates similar)
-                        name_only_key = create_name_only_match_key(
-                            family_name, given_name)
-                        if name_only_key in pms_lookup:
-                            candidates = pms_lookup[name_only_key]
-                            if isinstance(candidates, dict):
-                                candidates = [candidates]
-                            elif not isinstance(candidates, list):
-                                candidates = []
+                        # Try partial name matching (PMS names are substrings of DTX names)
+                        for pms_key, pms_candidate in pms_lookup.items():
+                            if isinstance(pms_candidate, dict):
+                                # Check if this is a potential partial match
+                                pms_family = pms_candidate.get('last_name', '')
+                                pms_given = pms_candidate.get('first_name', '')
+                                pms_sex = pms_candidate.get('gender', '')
+                                pms_dob = pms_candidate.get('dob', '')
 
-                            # Check each candidate for fuzzy date match
-                            for candidate in candidates:
-                                if is_fuzzy_date_match(dob, candidate['dob']):
-                                    pms_data = candidate
-                                    is_gender_mismatch = (
-                                        sex != pms_data['gender'])
-                                    is_date_correction = True
-                                    match_type = "fuzzy_date"
-                                    break  # Take first fuzzy match
+                                # Check if PMS names are substrings of DTX names and other fields match
+                                if (is_partial_name_match(pms_family, family_name) and
+                                    is_partial_name_match(pms_given, given_name) and
+                                        normalize_date(pms_dob) == normalize_date(dob)):
+
+                                    if normalize_string(pms_sex) == normalize_string(sex):
+                                        # Exact partial match (names partial, gender and DOB exact)
+                                        pms_data = pms_candidate
+                                        is_partial_match = True
+                                        match_type = "partial_exact"
+                                        break
+                                    else:
+                                        # Loose partial match (names partial, DOB exact, gender differs)
+                                        pms_data = pms_candidate
+                                        is_partial_match = True
+                                        is_gender_mismatch = True
+                                        match_type = "partial_loose"
+                                        break
+
+                        if not pms_data:
+                            # Try fuzzy date matching (names match, dates similar)
+                            name_only_key = create_name_only_match_key(
+                                family_name, given_name)
+                            if name_only_key in pms_lookup:
+                                candidates = pms_lookup[name_only_key]
+                                if isinstance(candidates, dict):
+                                    candidates = [candidates]
+                                elif not isinstance(candidates, list):
+                                    candidates = []
+
+                                # Check each candidate for fuzzy date match
+                                for candidate in candidates:
+                                    if is_fuzzy_date_match(dob, candidate['dob']):
+                                        pms_data = candidate
+                                        is_gender_mismatch = (
+                                            sex != pms_data['gender'])
+                                        is_date_correction = True
+                                        match_type = "fuzzy_date"
+                                        break  # Take first fuzzy match
 
                     if pms_data:
                         matches_found += 1
@@ -409,6 +457,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                 date_corrections += 1
                             if is_name_flip:
                                 name_flips += 1
+                            if is_partial_match:
+                                partial_name_matches += 1
                             if pms_data.get('is_pms_gender_error', False):
                                 pms_gender_errors += 1
 
@@ -446,6 +496,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                 log_prefix.append("DATE CORRECTION")
                             if is_name_flip:
                                 log_prefix.append("NAME FLIP")
+                            if is_partial_match:
+                                log_prefix.append("PARTIAL NAME MATCH")
                             if pms_data.get('is_pms_gender_error', False):
                                 log_prefix.append(
                                     "CODICE_FISCALE_GENDER_ERROR")
@@ -490,7 +542,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
 
     # Print stats to stderr so they don't interfere with CSV output to stdout
     logging.info(
-        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections, {name_flips} name flips corrected, {pms_gender_errors} PMS gender errors corrected")
+        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections, {name_flips} name flips corrected, {partial_name_matches} partial name matches, {pms_gender_errors} PMS gender errors corrected")
     print(f"\nProcessing complete:", file=sys.stderr)
     print(f"Total records processed: {total_records}", file=sys.stderr)
     print(f"Matches found: {matches_found}", file=sys.stderr)
@@ -500,6 +552,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
     print(f"Gender corrections: {gender_mismatches}", file=sys.stderr)
     print(f"Date corrections: {date_corrections}", file=sys.stderr)
     print(f"Name flips corrected: {name_flips}", file=sys.stderr)
+    print(f"Partial name matches: {partial_name_matches}", file=sys.stderr)
     print(f"PMS gender errors corrected: {pms_gender_errors}", file=sys.stderr)
     if output_file:
         print(f"Output written to: {output_file}", file=sys.stderr)
@@ -533,6 +586,28 @@ def extract_gender_from_codice_fiscale(ssn: str) -> Optional[str]:
 
     except (ValueError, IndexError):
         return None
+
+
+def is_partial_name_match(pms_name: str, dtx_name: str) -> bool:
+    """
+    Check if PMS name is a substring of DTX name (case insensitive).
+    This handles cases where DTX has suffixes like 'BIS', 'TRIS', etc.
+
+    Args:
+        pms_name: Name from PMS (shorter, without suffix)
+        dtx_name: Name from DTX (potentially with suffix)
+
+    Returns:
+        True if PMS name matches the beginning of DTX name
+    """
+    if not pms_name or not dtx_name:
+        return False
+
+    pms_normalized = normalize_string(pms_name)
+    dtx_normalized = normalize_string(dtx_name)
+
+    # PMS name should be at the start of DTX name
+    return dtx_normalized.startswith(pms_normalized) and len(pms_normalized) > 0
 
 
 def main():
