@@ -96,6 +96,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
         output_file: Path to the output CSV file (None for stdout)
     """
     matches_found = 0
+    records_updated = 0
+    records_unchanged = 0
     total_records = 0
 
     try:
@@ -133,16 +135,20 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
 
                     # Check for match in PMS data
                     if match_key in pms_lookup:
-                        # Store old value for logging
+                        matches_found += 1
                         old_pms_id = row.get('pms_id', '')
                         new_pms_id = pms_lookup[match_key]
-                        
-                        # Update pms_id with custom_identifier from PMS
-                        row['pms_id'] = new_pms_id
-                        matches_found += 1
-                        
-                        # Log the change with old and new values
-                        logging.info(f"Match found: {given_name} {family_name} - Changed pms_id: '{old_pms_id}' -> '{new_pms_id}'")
+
+                        # Only update and log if the pms_id actually changes
+                        if old_pms_id != new_pms_id:
+                            row['pms_id'] = new_pms_id
+                            records_updated += 1
+                            logging.info(
+                                f"Updated: {given_name} {family_name} - Changed pms_id: '{old_pms_id}' -> '{new_pms_id}'")
+                        else:
+                            records_unchanged += 1
+                            logging.debug(
+                                f"Unchanged: {given_name} {family_name} - pms_id already correct: '{old_pms_id}'")
 
                     # Write the row (modified or original)
                     writer.writerow(row)
@@ -160,10 +166,14 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
         sys.exit(1)
 
     # Print stats to stderr so they don't interfere with CSV output to stdout
-    logging.info(f"Processing complete: {total_records} records processed, {matches_found} matches found and updated")
+    logging.info(
+        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged")
     print(f"\nProcessing complete:", file=sys.stderr)
     print(f"Total records processed: {total_records}", file=sys.stderr)
-    print(f"Matches found and updated: {matches_found}", file=sys.stderr)
+    print(f"Matches found: {matches_found}", file=sys.stderr)
+    print(f"Records updated: {records_updated}", file=sys.stderr)
+    print(
+        f"Records unchanged (already correct): {records_unchanged}", file=sys.stderr)
     if output_file:
         print(f"Output written to: {output_file}", file=sys.stderr)
 
