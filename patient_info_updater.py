@@ -149,11 +149,25 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                 sex = row.get('gender', '')
                 dob = row.get('dob', '')
                 custom_identifier = row.get('custom_identifier', '')
+                ssn = row.get('ssn', '')
 
                 if all([family_name, given_name, sex, dob, custom_identifier]):
-                    # Store with exact match key (including gender)
+                    # Validate and potentially correct gender based on codice fiscale
+                    corrected_sex = sex
+                    is_pms_gender_error = False
+
+                    if ssn:
+                        cf_gender = extract_gender_from_codice_fiscale(ssn)
+                        if cf_gender and cf_gender != sex:
+                            logging.warning(
+                                f"PMS GENDER ERROR: {given_name} {family_name} - PMS gender '{sex}' doesn't match codice fiscale gender '{cf_gender}' (SSN: {ssn})")
+                            corrected_sex = cf_gender
+                            is_pms_gender_error = True
+
+                # Store with exact match key (including gender)
+                if all([family_name, given_name, sex, dob, custom_identifier]):
                     match_key = create_match_key(
-                        family_name, given_name, sex, dob)
+                        family_name, given_name, corrected_sex, dob)
                     # Also store with loose match key (without gender)
                     loose_match_key = create_loose_match_key(
                         family_name, given_name, dob)
@@ -167,8 +181,9 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         'first_name': given_name,
                         'last_name': family_name,
                         'middle_initial': middle_name,
-                        'gender': sex,
-                        'dob': dob
+                        'gender': corrected_sex,  # Use corrected gender
+                        'dob': dob,
+                        'is_pms_gender_error': is_pms_gender_error
                     }
 
                     pms_lookup[match_key] = pms_data
@@ -212,6 +227,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
     records_unchanged = 0
     gender_mismatches = 0
     date_corrections = 0
+    pms_gender_errors = 0
     total_records = 0
 
     try:
@@ -336,6 +352,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                 gender_mismatches += 1
                             if is_date_correction:
                                 date_corrections += 1
+                            if pms_data.get('is_pms_gender_error', False):
+                                pms_gender_errors += 1
 
                             changes = []
                             if old_pms_id != new_pms_id:
@@ -369,6 +387,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                 log_prefix.append("GENDER MISMATCH")
                             if is_date_correction:
                                 log_prefix.append("DATE CORRECTION")
+                            if pms_data.get('is_pms_gender_error', False):
+                                log_prefix.append("PMS GENDER ERROR")
 
                             prefix_str = " - ".join(log_prefix)
                             if prefix_str:
@@ -410,7 +430,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
 
     # Print stats to stderr so they don't interfere with CSV output to stdout
     logging.info(
-        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections")
+        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections, {pms_gender_errors} PMS gender errors corrected")
     print(f"\nProcessing complete:", file=sys.stderr)
     print(f"Total records processed: {total_records}", file=sys.stderr)
     print(f"Matches found: {matches_found}", file=sys.stderr)
@@ -419,8 +439,39 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
         f"Records unchanged (already correct): {records_unchanged}", file=sys.stderr)
     print(f"Gender corrections: {gender_mismatches}", file=sys.stderr)
     print(f"Date corrections: {date_corrections}", file=sys.stderr)
+    print(f"PMS gender errors corrected: {pms_gender_errors}", file=sys.stderr)
     if output_file:
         print(f"Output written to: {output_file}", file=sys.stderr)
+
+
+def extract_gender_from_codice_fiscale(ssn: str) -> Optional[str]:
+    """
+    Extract gender from Italian codice fiscale (SSN).
+
+    Args:
+        ssn: The codice fiscale string
+
+    Returns:
+        'M' for male, 'F' for female, None if invalid or can't determine
+    """
+    if not ssn or len(ssn) < 11:
+        return None
+
+    try:
+        # Get chars 10-11 (0-based indexing: chars 9-10)
+        day_chars = ssn[9:11]
+        day_number = int(day_chars)
+
+        # For females, day is encoded with +40 offset
+        if 41 <= day_number <= 71:
+            return 'F'  # Female (day - 40 gives actual day 1-31)
+        elif 1 <= day_number <= 31:
+            return 'M'  # Male (actual day)
+        else:
+            return None  # Invalid day
+
+    except (ValueError, IndexError):
+        return None
 
 
 def main():
