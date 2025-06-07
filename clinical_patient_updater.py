@@ -13,11 +13,9 @@ import csv
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 from dtxstudio_patient_info.core.patient_matcher import ClinicalPatientMatcher
-from dtxstudio_patient_info.core.data_models import SessionStatistics
-from dtxstudio_patient_info.utils.normalizers import normalize_string, normalize_date, normalize_gender
 from dtxstudio_patient_info.utils.key_builders import create_composite_keys
 from dtxstudio_patient_info.utils.italian_cf import (
     extract_gender_from_codice_fiscale,
