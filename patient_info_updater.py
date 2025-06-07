@@ -56,6 +56,16 @@ def create_name_only_match_key(family_name: str, given_name: str) -> str:
     return f"{normalize_string(family_name)}|{normalize_string(given_name)}"
 
 
+def create_flipped_match_key(family_name: str, given_name: str, sex: str, dob: str) -> str:
+    """Create a normalized key for matching patients with flipped names."""
+    return f"{normalize_string(given_name)}|{normalize_string(family_name)}|{normalize_string(sex)}|{normalize_date(dob)}"
+
+
+def create_flipped_loose_match_key(family_name: str, given_name: str, dob: str) -> str:
+    """Create a normalized key for loose matching patients with flipped names (without gender)."""
+    return f"{normalize_string(given_name)}|{normalize_string(family_name)}|{normalize_date(dob)}"
+
+
 def calculate_digit_similarity(date1: str, date2: str) -> float:
     """
     Calculate similarity between two dates based on digit differences.
@@ -175,6 +185,12 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                     name_only_key = create_name_only_match_key(
                         family_name, given_name)
 
+                    # Store with flipped name keys (for name reversal detection)
+                    flipped_match_key = create_flipped_match_key(
+                        family_name, given_name, corrected_sex, dob)
+                    flipped_loose_match_key = create_flipped_loose_match_key(
+                        family_name, given_name, dob)
+
                     # Store all the data we want to update
                     pms_data = {
                         'custom_identifier': custom_identifier,
@@ -202,6 +218,12 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         # Add to existing list
                         pms_lookup[name_only_key].append(pms_data)
 
+                    # Store under flipped keys if not already present
+                    if flipped_match_key not in pms_lookup:
+                        pms_lookup[flipped_match_key] = pms_data
+                    if flipped_loose_match_key not in pms_lookup:
+                        pms_lookup[flipped_loose_match_key] = pms_data
+
     except FileNotFoundError:
         logging.error(f"PMS file '{pms_file}' not found.")
         sys.exit(1)
@@ -227,6 +249,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
     records_unchanged = 0
     gender_mismatches = 0
     date_corrections = 0
+    name_flips = 0
     pms_gender_errors = 0
     total_records = 0
 
@@ -259,14 +282,23 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     sex = row.get('sex', '')
                     dob = row.get('dob', '')
 
-                    # Create match key
+                    # Create match keys
                     match_key = create_match_key(
                         family_name, given_name, sex, dob)
                     loose_match_key = create_loose_match_key(
-                        family_name, given_name, dob)                    # Check for match in PMS data (exact match first, then loose match, then fuzzy)
+                        family_name, given_name, dob)
+
+                    # Create flipped name keys
+                    flipped_match_key = create_flipped_match_key(
+                        family_name, given_name, sex, dob)
+                    flipped_loose_match_key = create_flipped_loose_match_key(
+                        family_name, given_name, dob)
+
+                    # Check for match in PMS data (exact match first, then loose match, then flipped, then fuzzy)
                     pms_data = None
                     is_gender_mismatch = False
                     is_date_correction = False
+                    is_name_flip = False
                     match_type = None
 
                     if match_key in pms_lookup:
@@ -278,6 +310,17 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         pms_data = pms_lookup[loose_match_key]
                         is_gender_mismatch = (sex != pms_data['gender'])
                         match_type = "loose"
+                    elif flipped_match_key in pms_lookup:
+                        # Flipped name exact match
+                        pms_data = pms_lookup[flipped_match_key]
+                        is_name_flip = True
+                        match_type = "flipped_exact"
+                    elif flipped_loose_match_key in pms_lookup:
+                        # Flipped name loose match
+                        pms_data = pms_lookup[flipped_loose_match_key]
+                        is_gender_mismatch = (sex != pms_data['gender'])
+                        is_name_flip = True
+                        match_type = "flipped_loose"
                     else:
                         # Try fuzzy date matching (names match, dates similar)
                         name_only_key = create_name_only_match_key(
@@ -352,6 +395,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                 gender_mismatches += 1
                             if is_date_correction:
                                 date_corrections += 1
+                            if is_name_flip:
+                                name_flips += 1
                             if pms_data.get('is_pms_gender_error', False):
                                 pms_gender_errors += 1
 
@@ -387,6 +432,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                 log_prefix.append("GENDER MISMATCH")
                             if is_date_correction:
                                 log_prefix.append("DATE CORRECTION")
+                            if is_name_flip:
+                                log_prefix.append("NAME FLIP")
                             if pms_data.get('is_pms_gender_error', False):
                                 log_prefix.append(
                                     "CODICE_FISCALE_GENDER_ERROR")
@@ -431,7 +478,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
 
     # Print stats to stderr so they don't interfere with CSV output to stdout
     logging.info(
-        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections, {pms_gender_errors} PMS gender errors corrected")
+        f"Processing complete: {total_records} records processed, {matches_found} matches found, {records_updated} records updated, {records_unchanged} records unchanged, {gender_mismatches} gender corrections, {date_corrections} date corrections, {name_flips} name flips corrected, {pms_gender_errors} PMS gender errors corrected")
     print(f"\nProcessing complete:", file=sys.stderr)
     print(f"Total records processed: {total_records}", file=sys.stderr)
     print(f"Matches found: {matches_found}", file=sys.stderr)
@@ -440,6 +487,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
         f"Records unchanged (already correct): {records_unchanged}", file=sys.stderr)
     print(f"Gender corrections: {gender_mismatches}", file=sys.stderr)
     print(f"Date corrections: {date_corrections}", file=sys.stderr)
+    print(f"Name flips corrected: {name_flips}", file=sys.stderr)
     print(f"PMS gender errors corrected: {pms_gender_errors}", file=sys.stderr)
     if output_file:
         print(f"Output written to: {output_file}", file=sys.stderr)
