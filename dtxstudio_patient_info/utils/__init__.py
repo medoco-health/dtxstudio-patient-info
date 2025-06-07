@@ -5,8 +5,10 @@ from .normalizers import normalize_string, normalize_date, normalize_gender
 from .key_builders import (
     create_exact_match_key,
     create_loose_match_key,
-    create_name_only_match_key,
-    create_flipped_match_key,
+    create_name_only_key,
+    create_flipped_name_only_key,
+    create_flipped_exact_key,
+    create_flipped_loose_key,
     create_composite_keys
 )
 from .italian_cf import extract_gender_from_codice_fiscale, validate_codice_fiscale_format
@@ -18,8 +20,10 @@ __all__ = [
     'normalize_gender',
     'create_exact_match_key',
     'create_loose_match_key',
-    'create_name_only_match_key',
-    'create_flipped_match_key',
+    'create_name_only_key',
+    'create_flipped_name_only_key',
+    'create_flipped_exact_key',
+    'create_flipped_loose_key',
     'create_composite_keys',
     'extract_gender_from_codice_fiscale',
     'validate_codice_fiscale_format',

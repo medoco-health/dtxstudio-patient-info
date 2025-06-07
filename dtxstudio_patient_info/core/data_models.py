@@ -101,19 +101,45 @@ class MatchResult:
 
 @dataclass
 class MatchingStrategy:
-    """Definition of a patient matching strategy."""
-    name: str
-    rules: List[str]
-    confidence: float
-    priority: int
-    description: str
-
-    def __post_init__(self):
-        """Validate strategy configuration."""
-        if not 0.0 <= self.confidence <= 1.0:
-            raise ValueError("Confidence must be between 0.0 and 1.0")
-        if self.priority < 1:
-            raise ValueError("Priority must be >= 1")
+    """Base class for patient matching strategies."""
+    
+    def execute(self, dtx_record: 'PatientRecord', pms_lookup: Dict[str, Any]) -> Optional['MatchResult']:
+        """Execute the matching strategy."""
+        raise NotImplementedError("Subclasses must implement execute method")
+    
+    @property
+    def name(self) -> str:
+        """Strategy name."""
+        raise NotImplementedError("Subclasses must implement name property")
+    
+    @property
+    def confidence_score(self) -> float:
+        """Confidence score for this strategy."""
+        raise NotImplementedError("Subclasses must implement confidence_score property")
+    
+    @property
+    def match_type(self) -> 'MatchType':
+        """Match type for this strategy."""
+        raise NotImplementedError("Subclasses must implement match_type property")
+    
+    def _create_match_result(self, pms_data: Union[Dict[str, Any], List[Dict[str, Any]]], 
+                           dtx_record: 'PatientRecord', match_details: Dict[str, Any]) -> 'MatchResult':
+        """Create a MatchResult from PMS data and DTX record."""
+        # Handle multiple candidates
+        if isinstance(pms_data, list):
+            pms_data = pms_data[0]  # Take first candidate
+        
+        # Determine if manual review is required based on confidence
+        requires_manual_review = self.confidence_score < 0.70
+        
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_data,
+            confidence_score=self.confidence_score,
+            match_type=self.match_type,
+            requires_manual_review=requires_manual_review,
+            match_details=match_details
+        )
 
 
 @dataclass

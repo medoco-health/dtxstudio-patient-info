@@ -8,7 +8,8 @@ typically requiring manual review in clinical environments.
 from typing import Dict, Any, Optional, List, Union
 from ..core.data_models import MatchingStrategy, MatchResult, MatchType, PatientRecord
 from ..utils.key_builders import create_name_only_key, create_flipped_name_only_key
-from ..utils.normalizers import is_fuzzy_date_match, normalize_string, normalize_date
+from ..utils.normalizers import normalize_string, is_partial_name_match
+from ..utils.date_similarity import is_fuzzy_date_match
 
 
 class ExactNamesFuzzyDateStrategy(MatchingStrategy):
@@ -61,6 +62,34 @@ class ExactNamesFuzzyDateStrategy(MatchingStrategy):
                         )
 
         return None
+
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=0.72,  # ExactNamesFuzzyDateStrategy confidence
+            match_type=MatchType.EXACT_FUZZY_DOB,
+            requires_manual_review=False,
+            match_details=match_details,
+            is_gender_mismatch=bool(pms_patient.sex != dtx_record.sex),
+            is_date_correction=match_details.get('fuzzy_date_detected', False),
+            is_name_flip=match_details.get('name_flip_detected', False),
+            is_partial_match=match_details.get(
+                'suffix_removal_detected', False),
+            is_pms_gender_error=candidate.get('is_pms_gender_error', False)
+        )
 
 
 class FlippedNamesFuzzyDateStrategy(MatchingStrategy):
@@ -123,6 +152,34 @@ class FlippedNamesFuzzyDateStrategy(MatchingStrategy):
 
         return None
 
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=0.65,  # FlippedNamesFuzzyDateStrategy confidence
+            match_type=MatchType.FLIPPED_FUZZY_DOB,
+            requires_manual_review=True,  # Always requires manual review
+            match_details=match_details,
+            is_gender_mismatch=bool(pms_patient.sex != dtx_record.sex),
+            is_date_correction=match_details.get('fuzzy_date_detected', False),
+            is_name_flip=match_details.get('name_flip_detected', False),
+            is_partial_match=match_details.get(
+                'suffix_removal_detected', False),
+            is_pms_gender_error=candidate.get('is_pms_gender_error', False)
+        )
+
 
 class PartialNamesFuzzyDateStrategy(MatchingStrategy):
     """
@@ -145,8 +202,6 @@ class PartialNamesFuzzyDateStrategy(MatchingStrategy):
         return MatchType.PARTIAL_FUZZY_DOB
 
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
-        from ..utils.normalizers import is_partial_name_match
-
         # This is the most complex strategy - iterate through all PMS records
         # looking for partial name matches with fuzzy dates
         for pms_key, pms_data in pms_lookup.items():
@@ -172,6 +227,34 @@ class PartialNamesFuzzyDateStrategy(MatchingStrategy):
                     )
 
         return None
+
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=0.55,  # PartialNamesFuzzyDateStrategy confidence
+            match_type=MatchType.PARTIAL_FUZZY_DOB,
+            requires_manual_review=True,  # Always requires manual review
+            match_details=match_details,
+            is_gender_mismatch=bool(pms_patient.sex != dtx_record.sex),
+            is_date_correction=match_details.get('fuzzy_date_detected', False),
+            is_name_flip=match_details.get('name_flip_detected', False),
+            is_partial_match=match_details.get(
+                'suffix_removal_detected', False),
+            is_pms_gender_error=candidate.get('is_pms_gender_error', False)
+        )
 
 
 # Additional utility for handling candidate lists

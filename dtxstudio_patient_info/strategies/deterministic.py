@@ -17,63 +17,109 @@ from ..utils.normalizers import is_partial_name_match, normalize_string, normali
 class GoldStandardStrategy(MatchingStrategy):
     """
     Gold standard exact matching - all fields match perfectly.
-    
+
     Confidence: 100% - No manual review required
     Use case: Same patient, same data entry, no errors
     """
-    
+
     @property
     def name(self) -> str:
         return "Gold Standard Exact Match"
-    
+
     @property
     def confidence_score(self) -> float:
         return 1.0
-    
-    @property 
+
+    @property
     def match_type(self) -> MatchType:
         return MatchType.GOLD_STANDARD
-    
+
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
         key = create_exact_match_key(
-            dtx_record.family_name, dtx_record.given_name, 
+            dtx_record.family_name, dtx_record.given_name,
             dtx_record.sex, dtx_record.dob
         )
-        
+
         if key in pms_lookup:
             return self._create_match_result(
                 pms_lookup[key], dtx_record,
                 {'match_key': key, 'strategy': 'gold_standard'}
             )
-        
+
         return None
+
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),  # PMS uses 'last_name'
+            # PMS uses 'first_name'
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),             # PMS uses 'gender'
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            # PMS uses 'middle_initial'
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+
+        # Determine if manual review is required
+        requires_manual_review = (
+            1.0 < 0.70 or  # Gold standard confidence
+            match_details.get('requires_manual_review', False)
+        )
+
+        # Determine correction flags
+        is_gender_mismatch = bool(
+            pms_patient.sex != dtx_record.sex and
+            dtx_record.sex and pms_patient.sex  # Both non-empty
+        )
+
+        is_name_flip = match_details.get('name_flip_detected', False)
+        is_date_correction = match_details.get('fuzzy_date_detected', False)
+        is_partial_match = match_details.get('suffix_removal_detected', False)
+        is_pms_gender_error = candidate.get('is_pms_gender_error', False)
+
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=1.0,  # Gold standard confidence
+            match_type=MatchType.GOLD_STANDARD,
+            requires_manual_review=requires_manual_review,
+            match_details=match_details,
+            is_gender_mismatch=is_gender_mismatch,
+            is_date_correction=is_date_correction,
+            is_name_flip=is_name_flip,
+            is_partial_match=is_partial_match,
+            is_pms_gender_error=is_pms_gender_error
+        )
 
 
 class ExactNamesGenderLooseStrategy(MatchingStrategy):
     """
     Exact names and DOB, flexible gender matching.
-    
+
     Confidence: 98% - Auto-match with gender correction warning
     Use case: Data entry gender errors, but names/DOB are reliable
     """
-    
+
     @property
     def name(self) -> str:
         return "Exact Names with Gender Flexibility"
-    
+
     @property
     def confidence_score(self) -> float:
         return 0.98
-    
+
     @property
     def match_type(self) -> MatchType:
         return MatchType.EXACT_GENDER_LOOSE
-    
+
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
         key = create_loose_match_key(
             dtx_record.family_name, dtx_record.given_name, dtx_record.dob
         )
-        
+
         if key in pms_lookup:
             pms_data = pms_lookup[key]
             # Only match if exact strategy didn't already match
@@ -81,80 +127,80 @@ class ExactNamesGenderLooseStrategy(MatchingStrategy):
                 dtx_record.family_name, dtx_record.given_name,
                 dtx_record.sex, dtx_record.dob
             )
-            
+
             if exact_key not in pms_lookup:  # Avoid duplicate matches
                 return self._create_match_result(
                     pms_data, dtx_record,
                     {'match_key': key, 'strategy': 'exact_names_gender_loose'}
                 )
-        
+
         return None
 
 
 class FlippedNamesExactStrategy(MatchingStrategy):
     """
     Flipped names with exact gender and DOB.
-    
+
     Confidence: 97% - Auto-match with name flip correction
     Use case: First/last names swapped between DTX and PMS systems
     """
-    
+
     @property
     def name(self) -> str:
         return "Flipped Names Exact Match"
-    
+
     @property
     def confidence_score(self) -> float:
         return 0.97
-    
+
     @property
     def match_type(self) -> MatchType:
         return MatchType.FLIPPED_EXACT
-    
+
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
         key = create_flipped_exact_key(
             dtx_record.family_name, dtx_record.given_name,
             dtx_record.sex, dtx_record.dob
         )
-        
+
         if key in pms_lookup:
             return self._create_match_result(
                 pms_lookup[key], dtx_record,
                 {
-                    'match_key': key, 
+                    'match_key': key,
                     'strategy': 'flipped_exact',
                     'name_flip_detected': True
                 }
             )
-        
+
         return None
 
 
 class FlippedNamesGenderLooseStrategy(MatchingStrategy):
     """
     Flipped names with flexible gender matching.
-    
+
     Confidence: 90% - Auto-match with name flip and gender corrections
     Use case: Names flipped AND gender data quality issues
     """
-    
+
     @property
     def name(self) -> str:
         return "Flipped Names with Gender Flexibility"
-    
+
     @property
     def confidence_score(self) -> float:
         return 0.90
-    
+
     @property
     def match_type(self) -> MatchType:
         return MatchType.FLIPPED_GENDER_LOOSE
-    
+
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
         key = create_flipped_loose_key(
             dtx_record.family_name, dtx_record.given_name, dtx_record.dob
         )
-        
+
         if key in pms_lookup:
             pms_data = pms_lookup[key]
             # Check that exact flipped match didn't already occur
@@ -162,40 +208,67 @@ class FlippedNamesGenderLooseStrategy(MatchingStrategy):
                 dtx_record.family_name, dtx_record.given_name,
                 dtx_record.sex, dtx_record.dob
             )
-            
+
             if exact_flipped_key not in pms_lookup:  # Avoid duplicate matches
                 return self._create_match_result(
                     pms_data, dtx_record,
                     {
                         'match_key': key,
-                        'strategy': 'flipped_gender_loose', 
+                        'strategy': 'flipped_gender_loose',
                         'name_flip_detected': True
                     }
                 )
-        
+
         return None
+
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+        
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=0.90,  # FlippedNamesGenderLooseStrategy confidence
+            match_type=MatchType.FLIPPED_GENDER_LOOSE,
+            requires_manual_review=False,
+            match_details=match_details,
+            is_gender_mismatch=bool(pms_patient.sex != dtx_record.sex),
+            is_date_correction=match_details.get('fuzzy_date_detected', False),
+            is_name_flip=match_details.get('name_flip_detected', False),
+            is_partial_match=match_details.get('suffix_removal_detected', False),
+            is_pms_gender_error=candidate.get('is_pms_gender_error', False)
+        )
 
 
 class PartialNamesExactStrategy(MatchingStrategy):
     """
     Partial name matching with exact gender and DOB.
-    
+
     Confidence: 85% - Auto-match with suffix removal
     Use case: DTX has suffixes like "BIS", "TRIS", "II", "JR"
     """
-    
+
     @property
     def name(self) -> str:
         return "Partial Names Exact Match"
-    
+
     @property
     def confidence_score(self) -> float:
         return 0.85
-    
+
     @property
     def match_type(self) -> MatchType:
         return MatchType.PARTIAL_EXACT
-    
+
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
         # Iterate through PMS records to find partial matches
         for pms_key, pms_data in pms_lookup.items():
@@ -204,13 +277,13 @@ class PartialNamesExactStrategy(MatchingStrategy):
                 pms_given = pms_data.get('first_name', '')
                 pms_sex = pms_data.get('gender', '')
                 pms_dob = pms_data.get('dob', '')
-                
+
                 # Check if PMS names are substrings of DTX names
                 if (is_partial_name_match(pms_family, dtx_record.family_name) and
                     is_partial_name_match(pms_given, dtx_record.given_name) and
                     normalize_string(pms_sex) == normalize_string(dtx_record.sex) and
                     normalize_date(pms_dob) == normalize_date(dtx_record.dob)):
-                    
+
                     return self._create_match_result(
                         pms_data, dtx_record,
                         {
@@ -223,30 +296,57 @@ class PartialNamesExactStrategy(MatchingStrategy):
                             'pms_given_base': pms_given
                         }
                     )
-        
+
         return None
+
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+        
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=0.85,  # PartialNamesExactStrategy confidence
+            match_type=MatchType.PARTIAL_EXACT,
+            requires_manual_review=False,
+            match_details=match_details,
+            is_gender_mismatch=bool(pms_patient.sex != dtx_record.sex),
+            is_date_correction=match_details.get('fuzzy_date_detected', False),
+            is_name_flip=match_details.get('name_flip_detected', False),
+            is_partial_match=match_details.get('suffix_removal_detected', False),
+            is_pms_gender_error=candidate.get('is_pms_gender_error', False)
+        )
 
 
 class PartialNamesGenderLooseStrategy(MatchingStrategy):
     """
     Partial name matching with flexible gender.
-    
+
     Confidence: 75% - Auto-match with suffix removal and gender correction
     Use case: DTX has suffixes AND gender data quality issues
     """
-    
+
     @property
     def name(self) -> str:
         return "Partial Names with Gender Flexibility"
-    
+
     @property
     def confidence_score(self) -> float:
         return 0.75
-    
+
     @property
     def match_type(self) -> MatchType:
         return MatchType.PARTIAL_GENDER_LOOSE
-    
+
     def execute(self, dtx_record: PatientRecord, pms_lookup: Dict[str, Any]) -> Optional[MatchResult]:
         # Iterate through PMS records to find partial matches
         for pms_key, pms_data in pms_lookup.items():
@@ -254,12 +354,12 @@ class PartialNamesGenderLooseStrategy(MatchingStrategy):
                 pms_family = pms_data.get('last_name', '')
                 pms_given = pms_data.get('first_name', '')
                 pms_dob = pms_data.get('dob', '')
-                
+
                 # Check if PMS names are substrings of DTX names (ignore gender)
                 if (is_partial_name_match(pms_family, dtx_record.family_name) and
                     is_partial_name_match(pms_given, dtx_record.given_name) and
                     normalize_date(pms_dob) == normalize_date(dtx_record.dob)):
-                    
+
                     # Make sure this wasn't already matched by exact partial strategy
                     pms_sex = pms_data.get('gender', '')
                     if normalize_string(pms_sex) != normalize_string(dtx_record.sex):
@@ -272,5 +372,32 @@ class PartialNamesGenderLooseStrategy(MatchingStrategy):
                                 'gender_mismatch_detected': True
                             }
                         )
-        
+
         return None
+
+    def _create_match_result(self, candidate: dict, dtx_record: PatientRecord, match_details: dict) -> MatchResult:
+        """Create a MatchResult from a candidate match with proper field mapping."""
+        # Map PMS fields to PatientRecord fields correctly
+        pms_patient = PatientRecord(
+            family_name=candidate.get('last_name', ''),
+            given_name=candidate.get('first_name', ''),
+            sex=candidate.get('gender', ''),
+            dob=candidate.get('dob', ''),
+            custom_identifier=candidate.get('custom_identifier', ''),
+            middle_name=candidate.get('middle_initial', ''),
+            ssn=candidate.get('ssn', '')
+        )
+        
+        return MatchResult(
+            match_found=True,
+            pms_data=pms_patient,
+            confidence_score=0.75,  # PartialNamesGenderLooseStrategy confidence
+            match_type=MatchType.PARTIAL_GENDER_LOOSE,
+            requires_manual_review=False,
+            match_details=match_details,
+            is_gender_mismatch=bool(pms_patient.sex != dtx_record.sex),
+            is_date_correction=match_details.get('fuzzy_date_detected', False),
+            is_name_flip=match_details.get('name_flip_detected', False),
+            is_partial_match=match_details.get('suffix_removal_detected', False),
+            is_pms_gender_error=candidate.get('is_pms_gender_error', False)
+        )

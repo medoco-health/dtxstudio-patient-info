@@ -185,3 +185,126 @@ def analyze_date_discrepancy(date1: str, date2: str) -> dict:
         analysis['likely_cause'] = 'different_dates'
     
     return analysis
+
+
+"""
+Date similarity utilities for fuzzy date matching in patient records.
+
+This module provides functions to handle date variations and fuzzy matching
+common in healthcare data entry scenarios.
+"""
+
+import re
+from datetime import datetime, timedelta
+from typing import Optional
+
+
+def normalize_date_for_comparison(date_str: str) -> Optional[datetime]:
+    """Normalize a date string to datetime object for comparison."""
+    if not date_str or not date_str.strip():
+        return None
+    
+    # Common date formats in healthcare
+    formats = [
+        "%Y-%m-%d",      # 1990-06-15
+        "%d/%m/%Y",      # 15/06/1990
+        "%m/%d/%Y",      # 06/15/1990
+        "%d-%m-%Y",      # 15-06-1990
+        "%m-%d-%Y",      # 06-15-1990
+        "%Y%m%d",        # 19900615
+        "%d.%m.%Y",      # 15.06.1990
+    ]
+    
+    date_str = date_str.strip()
+    
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+    
+    return None
+
+
+def is_fuzzy_date_match(date1: str, date2: str, tolerance_days: int = 2) -> bool:
+    """
+    Check if two dates are within tolerance for fuzzy matching.
+    
+    Args:
+        date1: First date string
+        date2: Second date string  
+        tolerance_days: Number of days tolerance (default: 2)
+        
+    Returns:
+        True if dates are within tolerance or exactly match
+    """
+    if not date1 or not date2:
+        return False
+    
+    # Try exact string match first
+    if date1.strip() == date2.strip():
+        return True
+    
+    # Parse dates
+    dt1 = normalize_date_for_comparison(date1)
+    dt2 = normalize_date_for_comparison(date2)
+    
+    if not dt1 or not dt2:
+        return False
+    
+    # Check if within tolerance
+    diff = abs((dt1 - dt2).days)
+    return diff <= tolerance_days
+
+
+def calculate_date_similarity_score(date1: str, date2: str) -> float:
+    """
+    Calculate a similarity score between two dates.
+    
+    Args:
+        date1: First date string
+        date2: Second date string
+        
+    Returns:
+        Float between 0.0 and 1.0 (1.0 = exact match)
+    """
+    if not date1 or not date2:
+        return 0.0
+    
+    # Exact match
+    if date1.strip() == date2.strip():
+        return 1.0
+    
+    # Parse dates
+    dt1 = normalize_date_for_comparison(date1)
+    dt2 = normalize_date_for_comparison(date2)
+    
+    if not dt1 or not dt2:
+        return 0.0
+    
+    # Calculate similarity based on day difference
+    diff_days = abs((dt1 - dt2).days)
+    
+    if diff_days == 0:
+        return 1.0
+    elif diff_days == 1:
+        return 0.9
+    elif diff_days == 2:
+        return 0.8
+    elif diff_days <= 7:
+        return 0.6
+    elif diff_days <= 30:
+        return 0.3
+    else:
+        return 0.0
+
+
+def is_fuzzy_date_within_year(date1: str, date2: str) -> bool:
+    """Check if two dates are within the same year (for birth year matching)."""
+    dt1 = normalize_date_for_comparison(date1)
+    dt2 = normalize_date_for_comparison(date2)
+    
+    if not dt1 or not dt2:
+        return False
+    
+    return dt1.year == dt2.year
