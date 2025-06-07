@@ -50,10 +50,9 @@ Repository = "https://github.com/medoco/dtxstudio-patient-info.git"
 
 [project.scripts]
 # Main entrypoints
-clinical-patient-updater = "clinical_matching.main:main"
-patient-info-updater = "patient_info_updater:main"
+dtxstudio-patient-updater = "dtxstudio_patient_info:main.main"
 
-# Utility scripts  
+# Utility scripts
 test-clinical-framework = "test_clinical_framework:main"
 
 [tool.setuptools.packages.find]
