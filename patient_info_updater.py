@@ -46,6 +46,11 @@ def create_match_key(family_name: str, given_name: str, sex: str, dob: str) -> s
     return f"{normalize_string(family_name)}|{normalize_string(given_name)}|{normalize_string(sex)}|{normalize_date(dob)}"
 
 
+def create_loose_match_key(family_name: str, given_name: str, dob: str) -> str:
+    """Create a normalized key for loose matching patients (without gender)."""
+    return f"{normalize_string(family_name)}|{normalize_string(given_name)}|{normalize_date(dob)}"
+
+
 def load_pms_data(pms_file: str) -> Dict[str, dict]:
     """
     Load PMS CSV data and create a lookup dictionary.
@@ -72,15 +77,26 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                 custom_identifier = row.get('custom_identifier', '')
 
                 if all([family_name, given_name, sex, dob, custom_identifier]):
+                    # Store with exact match key (including gender)
                     match_key = create_match_key(
                         family_name, given_name, sex, dob)
-                    # Store all the data we want to update, not just custom_identifier
-                    pms_lookup[match_key] = {
+                    # Also store with loose match key (without gender)
+                    loose_match_key = create_loose_match_key(
+                        family_name, given_name, dob)
+
+                    # Store all the data we want to update
+                    pms_data = {
                         'custom_identifier': custom_identifier,
                         'first_name': given_name,
                         'last_name': family_name,
-                        'middle_initial': middle_name
+                        'middle_initial': middle_name,
+                        'gender': sex
                     }
+
+                    pms_lookup[match_key] = pms_data
+                    # Also store under loose key if not already present
+                    if loose_match_key not in pms_lookup:
+                        pms_lookup[loose_match_key] = pms_data
 
     except FileNotFoundError:
         logging.error(f"PMS file '{pms_file}' not found.")
@@ -139,11 +155,23 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     # Create match key
                     match_key = create_match_key(
                         family_name, given_name, sex, dob)
+                    loose_match_key = create_loose_match_key(
+                        family_name, given_name, dob)
 
-                    # Check for match in PMS data
+                    # Check for match in PMS data (exact match first, then loose match)
+                    pms_data = None
+                    is_gender_mismatch = False
+
                     if match_key in pms_lookup:
-                        matches_found += 1
+                        # Exact match (including gender)
                         pms_data = pms_lookup[match_key]
+                    elif loose_match_key in pms_lookup:
+                        # Loose match (names and DOB match, but gender might differ)
+                        pms_data = pms_lookup[loose_match_key]
+                        is_gender_mismatch = (sex != pms_data['gender'])
+
+                    if pms_data:
+                        matches_found += 1
 
                         # Store old values for logging
                         old_pms_id = row.get('pms_id', '')
@@ -152,6 +180,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         old_given_name = row.get('given_name', '')
                         old_family_name = row.get('family_name', '')
                         old_middle_name = row.get('middle_name', '')
+                        old_sex = row.get('sex', '')
 
                         # Get new values from PMS
                         new_pms_id = pms_data['custom_identifier']
@@ -162,6 +191,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                         new_given_name = pms_data['first_name']
                         new_family_name = pms_data['last_name']
                         new_middle_name = pms_data['middle_initial']
+                        new_sex = pms_data['gender']
 
                         # Check if any fields need updating
                         needs_update = (old_pms_id != new_pms_id or
@@ -169,7 +199,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                         old_dicom_id != new_dicom_id or
                                         old_given_name != new_given_name or
                                         old_family_name != new_family_name or
-                                        old_middle_name != new_middle_name)
+                                        old_middle_name != new_middle_name or
+                                        old_sex != new_sex)
 
                         if needs_update:
                             # Update all fields
@@ -179,6 +210,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                             row['given_name'] = new_given_name
                             row['family_name'] = new_family_name
                             row['middle_name'] = new_middle_name
+                            row['sex'] = new_sex
 
                             records_updated += 1
                             changes = []
@@ -200,13 +232,25 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                             if old_middle_name != new_middle_name:
                                 changes.append(
                                     f"middle_name: '{old_middle_name}' -> '{new_middle_name}'")
+                            if old_sex != new_sex:
+                                changes.append(
+                                    f"sex: '{old_sex}' -> '{new_sex}'")
 
-                            logging.info(
-                                f"Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
+                            # Log with appropriate level based on gender mismatch
+                            if is_gender_mismatch:
+                                logging.warning(
+                                    f"GENDER MISMATCH - Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
+                            else:
+                                logging.info(
+                                    f"Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
                         else:
                             records_unchanged += 1
-                            logging.debug(
-                                f"Unchanged: {old_given_name} {old_family_name} - all fields already correct")
+                            if is_gender_mismatch:
+                                logging.warning(
+                                    f"GENDER MISMATCH - Unchanged: {old_given_name} {old_family_name} - DTX sex: '{old_sex}', PMS sex: '{new_sex}' - all other fields already correct")
+                            else:
+                                logging.debug(
+                                    f"Unchanged: {old_given_name} {old_family_name} - all fields already correct")
 
                     # Write the row (modified or original)
                     writer.writerow(row)
