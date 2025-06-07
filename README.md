@@ -129,7 +129,7 @@ dtxstudio_patient_info/
 │   ├── clinical_service.py     # Business logic
 │   ├── reporting_service.py    # Audit reports
 │   ├── patient_matcher.py      # Core matching engine
-│   ├── matching_strategies.py  # Algorithm definitions
+│   ├── data_models.py          # Data structures & types
 │   └── confidence_scoring.py   # Confidence calculations
 └── utils/                      # Utility functions
 ```

@@ -12,7 +12,7 @@ References:
 """
 
 from .core.patient_matcher import ClinicalPatientMatcher
-from .core.matching_strategies import MatchingStrategy, MatchResult, MatchType, ConfidenceLevel
+from .core.data_models import MatchingStrategy, MatchResult, MatchType, ConfidenceLevel
 from .core.confidence_scoring import ConfidenceCalculator
 from .utils.normalizers import normalize_string, normalize_date
 from .utils.italian_cf import extract_gender_from_codice_fiscale

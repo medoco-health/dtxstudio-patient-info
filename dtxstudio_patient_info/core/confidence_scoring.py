@@ -6,7 +6,7 @@ based on clinical informatics research and healthcare data quality standards.
 """
 
 from typing import Dict, List, Tuple
-from .matching_strategies import MatchType, ConfidenceLevel, MatchResult
+from .data_models import MatchType, ConfidenceLevel, MatchResult
 import logging
 
 

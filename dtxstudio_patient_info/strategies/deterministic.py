@@ -6,7 +6,7 @@ clinical informatics literature and healthcare data quality standards.
 """
 
 from typing import Dict, Any, Optional
-from ..core.matching_strategies import MatchingStrategy, MatchResult, MatchType, PatientRecord
+from ..core.data_models import MatchingStrategy, MatchResult, MatchType, PatientRecord
 from ..utils.key_builders import (
     create_exact_match_key, create_loose_match_key,
     create_flipped_exact_key, create_flipped_loose_key

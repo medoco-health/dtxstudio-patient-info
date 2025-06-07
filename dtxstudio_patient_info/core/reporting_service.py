@@ -7,7 +7,7 @@ Service for generating clinical audit reports and statistics.
 import sys
 from typing import List
 
-from .matching_strategies import SessionStatistics
+from .data_models import SessionStatistics
 
 
 class ClinicalReportingService:

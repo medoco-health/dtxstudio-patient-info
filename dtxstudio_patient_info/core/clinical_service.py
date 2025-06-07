@@ -10,7 +10,7 @@ import logging
 from typing import Dict, List, Optional, Tuple, Union
 
 from .patient_matcher import ClinicalPatientMatcher
-from .matching_strategies import SessionStatistics
+from .data_models import SessionStatistics
 from ..utils.key_builders import create_composite_keys
 from ..utils.italian_cf import (
     extract_gender_from_codice_fiscale,

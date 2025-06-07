@@ -9,7 +9,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from ..core.patient_matcher import SessionStatistics
-from ..core.matching_strategies import MatchResult
+from ..core.data_models import MatchResult
 
 
 class ClinicalAuditLogger:

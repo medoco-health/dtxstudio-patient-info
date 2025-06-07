@@ -1,12 +1,12 @@
 """
-Core data structures and types for clinical patient matching.
+Clinical Patient Matching Data Models
 
-This module defines the fundamental data structures used throughout the
-clinical matching system, following healthcare informatics standards.
+This module defines the core data structures and types used throughout the
+clinical patient matching system, following healthcare informatics standards.
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Any
 from enum import Enum
 
 

@@ -6,7 +6,7 @@ typically requiring manual review in clinical environments.
 """
 
 from typing import Dict, Any, Optional, List, Union
-from ..core.matching_strategies import MatchingStrategy, MatchResult, MatchType, PatientRecord
+from ..core.data_models import MatchingStrategy, MatchResult, MatchType, PatientRecord
 from ..utils.key_builders import create_name_only_key, create_flipped_name_only_key
 from ..utils.normalizers import is_fuzzy_date_match, normalize_string, normalize_date
 

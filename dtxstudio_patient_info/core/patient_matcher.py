@@ -7,7 +7,7 @@ clinical informatics best practices and evidence-based approaches.
 
 import logging
 from typing import Dict, List, Optional, Any
-from .matching_strategies import (
+from .data_models import (
     MatchType, 
     ConfidenceLevel, 
     PatientRecord, 

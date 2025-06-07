@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from dtxstudio_patient_info.core.patient_matcher import ClinicalPatientMatcher
-from dtxstudio_patient_info.core.matching_strategies import SessionStatistics
+from dtxstudio_patient_info.core.data_models import SessionStatistics
 from dtxstudio_patient_info.utils.normalizers import normalize_string, normalize_date, normalize_gender
 from dtxstudio_patient_info.utils.key_builders import create_composite_keys
 from dtxstudio_patient_info.utils.italian_cf import (

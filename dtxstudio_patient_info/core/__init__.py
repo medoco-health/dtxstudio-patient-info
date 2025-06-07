@@ -1,7 +1,7 @@
 """Core clinical matching framework."""
 
 # Import main classes for easier access
-from .matching_strategies import (
+from .data_models import (
     MatchType, 
     ConfidenceLevel, 
     PatientRecord, 
