@@ -160,7 +160,7 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         cf_gender = extract_gender_from_codice_fiscale(ssn)
                         if cf_gender and cf_gender != sex:
                             logging.warning(
-                                f"PMS GENDER ERROR: {given_name} {family_name} - PMS gender '{sex}' doesn't match codice fiscale gender '{cf_gender}' (SSN: {ssn})")
+                                f"CODICE_FISCALE_GENDER_MISMATCH: {given_name} {family_name} [{custom_identifier}] - PMS gender '{sex}' doesn't match codice fiscale gender '{cf_gender}' (SSN: {ssn})")
                             corrected_sex = cf_gender
                             is_pms_gender_error = True
 
@@ -388,7 +388,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                             if is_date_correction:
                                 log_prefix.append("DATE CORRECTION")
                             if pms_data.get('is_pms_gender_error', False):
-                                log_prefix.append("PMS GENDER ERROR")
+                                log_prefix.append(
+                                    "CODICE_FISCALE_GENDER_ERROR")
 
                             prefix_str = " - ".join(log_prefix)
                             if prefix_str:
