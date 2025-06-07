@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include *.py
+recursive-include clinical_matching *.py
+recursive-include tests *.py
+exclude test_*.py
+exclude clinical_patient_updater.py
+global-exclude *.pyc
+global-exclude __pycache__
