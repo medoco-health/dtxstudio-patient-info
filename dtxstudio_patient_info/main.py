@@ -11,7 +11,6 @@ This is the main entrypoint for the clinical matching system.
 import argparse
 import logging
 import sys
-from pathlib import Path
 
 from .core.controller import ClinicalMatchingController
 
@@ -45,7 +44,8 @@ Examples:
 
     parser.add_argument('dtx_file', help='DTX CSV file path')
     parser.add_argument('pms_file', help='PMS CSV file path')
-    parser.add_argument('-o', '--output', help='Output CSV file (default: stdout)')
+    parser.add_argument(
+        '-o', '--output', help='Output CSV file (default: stdout)')
     parser.add_argument('--confidence-threshold', type=float, default=0.70,
                         help='Minimum confidence for automatic matching (default: 0.70)')
     parser.add_argument('--verbose', action='store_true',
@@ -62,8 +62,9 @@ Examples:
     output_file = None if args.audit_only else args.output
 
     # Create controller and execute workflow
-    controller = ClinicalMatchingController(confidence_threshold=args.confidence_threshold)
-    
+    controller = ClinicalMatchingController(
+        confidence_threshold=args.confidence_threshold)
+
     success = controller.execute_matching_workflow(
         dtx_file=args.dtx_file,
         pms_file=args.pms_file,
