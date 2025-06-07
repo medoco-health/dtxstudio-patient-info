@@ -218,6 +218,18 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         # Add to existing list
                         pms_lookup[name_only_key].append(pms_data)
 
+                    # Store under flipped name-only key for fuzzy matching as well
+                    flipped_name_only_key = create_name_only_match_key(given_name, family_name)  # Flipped order
+                    if flipped_name_only_key not in pms_lookup:
+                        pms_lookup[flipped_name_only_key] = pms_data
+                    elif isinstance(pms_lookup[flipped_name_only_key], dict):
+                        # Convert to list if we have multiple candidates
+                        pms_lookup[flipped_name_only_key] = [
+                            pms_lookup[flipped_name_only_key], pms_data]
+                    elif isinstance(pms_lookup[flipped_name_only_key], list):
+                        # Add to existing list
+                        pms_lookup[flipped_name_only_key].append(pms_data)
+
                     # Store under flipped keys if not already present
                     if flipped_match_key not in pms_lookup:
                         pms_lookup[flipped_match_key] = pms_data
