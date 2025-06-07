@@ -46,7 +46,7 @@ def create_match_key(family_name: str, given_name: str, sex: str, dob: str) -> s
     return f"{normalize_string(family_name)}|{normalize_string(given_name)}|{normalize_string(sex)}|{normalize_date(dob)}"
 
 
-def load_pms_data(pms_file: str) -> Dict[str, str]:
+def load_pms_data(pms_file: str) -> Dict[str, dict]:
     """
     Load PMS CSV data and create a lookup dictionary.
 
@@ -54,7 +54,7 @@ def load_pms_data(pms_file: str) -> Dict[str, str]:
         pms_file: Path to the PMS CSV file
 
     Returns:
-        Dictionary mapping match_key to custom_identifier
+        Dictionary mapping match_key to PMS patient data
     """
     pms_lookup = {}
 
@@ -66,6 +66,7 @@ def load_pms_data(pms_file: str) -> Dict[str, str]:
                 # Extract required fields from PMS data
                 family_name = row.get('last_name', '')
                 given_name = row.get('first_name', '')
+                middle_name = row.get('middle_initial', '')
                 sex = row.get('gender', '')
                 dob = row.get('dob', '')
                 custom_identifier = row.get('custom_identifier', '')
@@ -73,7 +74,13 @@ def load_pms_data(pms_file: str) -> Dict[str, str]:
                 if all([family_name, given_name, sex, dob, custom_identifier]):
                     match_key = create_match_key(
                         family_name, given_name, sex, dob)
-                    pms_lookup[match_key] = custom_identifier
+                    # Store all the data we want to update, not just custom_identifier
+                    pms_lookup[match_key] = {
+                        'custom_identifier': custom_identifier,
+                        'first_name': given_name,
+                        'last_name': family_name,
+                        'middle_initial': middle_name
+                    }
 
     except FileNotFoundError:
         logging.error(f"PMS file '{pms_file}' not found.")
@@ -86,13 +93,13 @@ def load_pms_data(pms_file: str) -> Dict[str, str]:
     return pms_lookup
 
 
-def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Optional[str] = None) -> None:
+def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Optional[str] = None) -> None:
     """
     Process DTX CSV file and update pms_id with matching custom_identifier.
 
     Args:
         dtx_file: Path to the DTX CSV file
-        pms_lookup: Dictionary mapping match_key to custom_identifier
+        pms_lookup: Dictionary mapping match_key to PMS patient data
         output_file: Path to the output CSV file (None for stdout)
     """
     matches_found = 0
@@ -136,19 +143,54 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, str], output_file: Opt
                     # Check for match in PMS data
                     if match_key in pms_lookup:
                         matches_found += 1
-                        old_pms_id = row.get('pms_id', '')
-                        new_pms_id = pms_lookup[match_key]
+                        pms_data = pms_lookup[match_key]
 
-                        # Only update and log if the pms_id actually changes
-                        if old_pms_id != new_pms_id:
+                        # Store old values for logging
+                        old_pms_id = row.get('pms_id', '')
+                        old_given_name = row.get('given_name', '')
+                        old_family_name = row.get('family_name', '')
+                        old_middle_name = row.get('middle_name', '')
+
+                        # Get new values from PMS
+                        new_pms_id = pms_data['custom_identifier']
+                        new_given_name = pms_data['first_name']
+                        new_family_name = pms_data['last_name']
+                        new_middle_name = pms_data['middle_initial']
+
+                        # Check if any fields need updating
+                        needs_update = (old_pms_id != new_pms_id or
+                                        old_given_name != new_given_name or
+                                        old_family_name != new_family_name or
+                                        old_middle_name != new_middle_name)
+
+                        if needs_update:
+                            # Update all fields
                             row['pms_id'] = new_pms_id
+                            row['given_name'] = new_given_name
+                            row['family_name'] = new_family_name
+                            row['middle_name'] = new_middle_name
+
                             records_updated += 1
+                            changes = []
+                            if old_pms_id != new_pms_id:
+                                changes.append(
+                                    f"pms_id: '{old_pms_id}' -> '{new_pms_id}'")
+                            if old_given_name != new_given_name:
+                                changes.append(
+                                    f"given_name: '{old_given_name}' -> '{new_given_name}'")
+                            if old_family_name != new_family_name:
+                                changes.append(
+                                    f"family_name: '{old_family_name}' -> '{new_family_name}'")
+                            if old_middle_name != new_middle_name:
+                                changes.append(
+                                    f"middle_name: '{old_middle_name}' -> '{new_middle_name}'")
+
                             logging.info(
-                                f"Updated: {given_name} {family_name} - Changed pms_id: '{old_pms_id}' -> '{new_pms_id}'")
+                                f"Updated: {old_given_name} {old_family_name} - {', '.join(changes)}")
                         else:
                             records_unchanged += 1
                             logging.debug(
-                                f"Unchanged: {given_name} {family_name} - pms_id already correct: '{old_pms_id}'")
+                                f"Unchanged: {old_given_name} {old_family_name} - all fields already correct")
 
                     # Write the row (modified or original)
                     writer.writerow(row)
