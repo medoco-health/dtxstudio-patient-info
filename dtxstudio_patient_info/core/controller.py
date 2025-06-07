@@ -55,7 +55,7 @@ class ClinicalMatchingController:
             pms_lookup = self.service.load_pms_data(pms_file)
 
             # Log readiness
-            print(f"🏥 Clinical patient matching framework ready!", file=sys.stderr)
+            print("🏥 Clinical patient matching framework ready!", file=sys.stderr)
             print(f"Loaded {len(pms_lookup)} PMS lookup keys", file=sys.stderr)
             print(
                 f"Confidence threshold: {self.confidence_threshold:.1%}", file=sys.stderr)
@@ -78,6 +78,7 @@ class ClinicalMatchingController:
             return True
 
         except Exception as e:
+            logging.exception(e)
             logging.error(f"Clinical matching workflow failed: {e}")
             return False
 
