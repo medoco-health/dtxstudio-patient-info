@@ -2,6 +2,8 @@
 
 A clinical informatics-based patient matching system for updating DTX patient records with PMS data using evidence-based matching algorithms.
 
+There is another rewrite of this tool in develop, refactored logistically to better be able to manage matching, but it is still incomplete.
+
 ## 🏥 Clinical Features
 
 - **Hierarchical Matching**: 9 evidence-based strategies (55%-100% confidence)
