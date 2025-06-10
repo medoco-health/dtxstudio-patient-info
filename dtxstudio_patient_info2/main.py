@@ -12,7 +12,7 @@ import argparse
 import logging
 import sys
 
-from dtxstudio_patient_info.core.controller import ClinicalMatchingController
+from dtxstudio_patient_info2.core.controller import ClinicalMatchingController
 
 
 def setup_logging(verbose: bool = False, log_file: str = "clinical_matching.log"):

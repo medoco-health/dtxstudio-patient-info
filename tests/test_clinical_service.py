@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Dict, List, Union
 from unittest.mock import Mock, patch
 
-from dtxstudio_patient_info.core.clinical_service import ClinicalMatchingService
-from dtxstudio_patient_info.core.data_models import (
+from dtxstudio_patient_info2.core.clinical_service import ClinicalMatchingService
+from dtxstudio_patient_info2.core.data_models import (
     MatchResult, MatchType, SessionStatistics, PatientRecord
 )
 
@@ -567,8 +567,8 @@ class TestClinicalMatchingService(unittest.TestCase):
 
     def test_flipped_names_fuzzy_date_strategy_basic(self):
         """Test FlippedNamesFuzzyDateStrategy basic functionality."""
-        from dtxstudio_patient_info.strategies.probabilistic import FlippedNamesFuzzyDateStrategy
-        from dtxstudio_patient_info.core.data_models import PatientRecord, MatchType
+        from dtxstudio_patient_info2.strategies.probabilistic import FlippedNamesFuzzyDateStrategy
+        from dtxstudio_patient_info2.core.data_models import PatientRecord, MatchType
         
         strategy = FlippedNamesFuzzyDateStrategy()
         
@@ -592,7 +592,7 @@ class TestClinicalMatchingService(unittest.TestCase):
 
     def test_flipped_names_fuzzy_date_strategy_properties(self):
         """Test FlippedNamesFuzzyDateStrategy properties and requirements."""
-        from dtxstudio_patient_info.strategies.probabilistic import FlippedNamesFuzzyDateStrategy
+        from dtxstudio_patient_info2.strategies.probabilistic import FlippedNamesFuzzyDateStrategy
         
         strategy = FlippedNamesFuzzyDateStrategy()
         
@@ -607,7 +607,7 @@ class TestClinicalMatchingService(unittest.TestCase):
         self.assertLess(strategy.confidence_score, 0.70)
         
         # Verify match type
-        from dtxstudio_patient_info.core.data_models import MatchType
+        from dtxstudio_patient_info2.core.data_models import MatchType
         self.assertEqual(strategy.match_type, MatchType.FLIPPED_FUZZY_DOB)
 
     def test_strategy_integration_in_matcher(self):
@@ -660,11 +660,11 @@ class TestClinicalMatchingService(unittest.TestCase):
         }
         
         # Test the matching
-        from dtxstudio_patient_info.strategies.probabilistic import FlippedNamesFuzzyDateStrategy
+        from dtxstudio_patient_info2.strategies.probabilistic import FlippedNamesFuzzyDateStrategy
         strategy = FlippedNamesFuzzyDateStrategy()
         
         # Convert dict to PatientRecord
-        from dtxstudio_patient_info.core.data_models import PatientRecord
+        from dtxstudio_patient_info2.core.data_models import PatientRecord
         dtx_patient_record = PatientRecord(
             family_name=dtx_record['family_name'],
             given_name=dtx_record['given_name'],
