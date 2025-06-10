@@ -83,6 +83,11 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
                 custom_identifier = row.get('custom_identifier', '')
                 ssn = row.get('ssn', '')
 
+                # Warn about missing date of birth
+                if not dob.strip():
+                    logging.warning(
+                        f"MISSING_DOB: {given_name} {family_name} [{custom_identifier}] - Patient has no date of birth")
+
                 if all([family_name, given_name, sex, dob, custom_identifier]):
                     # Validate and potentially correct gender based on codice fiscale
                     corrected_sex = sex
@@ -123,11 +128,11 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
                         family_name, given_name, corrected_sex, dob)
                     flipped_loose_match_key = create_match_key_no_gender_flipped_names(
                         family_name, given_name, dob)
-                    
+
                     # Store with no-suffix keys (for DTX names with suffixes)
                     no_suffix_key = create_match_key_no_suffix(
                         family_name, given_name, corrected_sex, dob)
-                    
+
                     # Store under flipped name-only key for fuzzy matching as well
                     flipped_name_only_key = create_match_key_name_only(
                         given_name=family_name, family_name=given_name)  # Flipped order
@@ -153,7 +158,6 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
 
     logging.info(f"Loaded {len(pms_lookup)} records from PMS file.")
     return pms_lookup
-
 
 
 def _find_pms_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dict]]]) -> Optional[tuple]:
@@ -316,7 +320,7 @@ def _process_match(row: dict, pms_data: dict, match_info: dict, stats: dict) -> 
     # Build new values from PMS data
     new_values = {
         'pms_id': pms_data['custom_identifier'],
-        'practice_pms_id': pms_data['custom_identifier'],
+        'practice_pms_id': '',  # Should be empty for DTX 
         'dicom_id': pms_data['custom_identifier'],
         'given_name': pms_data['first_name'],
         'family_name': pms_data['last_name'],
