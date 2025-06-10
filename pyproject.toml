@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "dtxstudio-patient-info"
 version = "1.0.0"
 authors = [
-    {name = "Clinical Informatics Team", email = "info@medoco.it"},
+    {name = "medoco HEALTH", email = "info@medoco.health"},
 ]
 description = "Clinical-grade patient information matching and updating system for DTX Studio"
 readme = "README.md"
@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-keywords = ["healthcare", "patient-matching", "clinical-informatics", "dtx", "pms", "record-linkage"]
+keywords = ["healthcare", "patient-matching", "clinical-informatics", "dtx-studio", "pms"]
 dependencies = [
     "tqdm>=4.67.1,<5.0.0",
     "requests>=2.25.0",
@@ -34,8 +34,7 @@ dependencies = [
 # Main entrypoints
 dtxstudio-patient-updater2 = "dtxstudio_patient_info2.main:main"
 dtxstudio-patient-updater1 = "dtxstudio_patient_info1.update_patient_info:main"
-dtx-merge-patients = "dtxstudio_patient_info1.merge_patients:main"
-dtx-deduplicate = "dtxstudio_patient_info1.dtx_deduplicate:main"
+dtxstudio-patient-merge = "dtxstudio_patient_info1.merge_patients:main"
 
 # Utility scripts
 test-clinical-framework = "test_clinical_framework:main"
@@ -87,43 +86,3 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
-
-[tool.black]
-line-length = 100
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
-include = '\.pyi?$'
-extend-exclude = '''
-/(
-  # directories
-  \.eggs
-  | \.git
-  | \.hg
-  | \.mypy_cache
-  | \.tox
-  | \.venv
-  | build
-  | dist
-)/
-'''
-
-[tool.mypy]
-python_version = "3.8"
-warn_return_any = true
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_optional = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-
-[[tool.mypy.overrides]]
-module = [
-    "tests.*",
-    "test_*",
-]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
