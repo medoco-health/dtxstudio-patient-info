@@ -35,19 +35,35 @@ Examples:
 
     args = parser.parse_args()
 
-    # Configure logging
-    log_level = logging.INFO if args.verbose else logging.WARNING
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s - %(levelname)s - %(message)s',
+    # Configure logging level
+    log_level = logging.DEBUG if args.verbose else logging.INFO
+    
+    # Configure logging to go to stdout when CSV goes to file, stderr when CSV goes to stdout
+    log_output = sys.stdout if args.output else sys.stderr
+    
+    # Create a custom handler that outputs to the appropriate stream
+    handler = logging.StreamHandler(log_output)
+    handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    ))
+    
+    # Configure root logger
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    logger.addHandler(handler)
+    
+    # Clear any existing handlers to avoid duplicates
+    logger.handlers = [handler]
+    
+    # Disable propagation to prevent duplicate messages
+    logger.propagate = False
 
     if args.verbose:
-        print(f"DTX file: {args.dtx_file}")
-        print(f"PMS file: {args.pms_file}")
-        print(f"Output file: {args.output}")
-        print()
+        logging.info(f"DTX file: {args.dtx_file}")
+        logging.info(f"PMS file: {args.pms_file}")
+        logging.info(f"Output file: {args.output}")
+        logging.info("")
 
     try:
         # Load PMS data for lookup

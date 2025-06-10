@@ -12,6 +12,7 @@ import csv
 import sys
 import logging
 from typing import Dict, Optional, Union, List
+from tqdm import tqdm
 
 from dtxstudio_patient_info1.match_keys import (
     create_match_key_exact,
@@ -172,6 +173,7 @@ def _find_pms_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dic
             # Mark as name flip and return
             pms_data, match_info = result
             match_info['is_name_flip'] = True
+            logging.debug(f"NAME_FLIP_DETECTED: DTX '{dtx_record['given_name']} {dtx_record['family_name']}' matched PMS '{pms_data['first_name']} {pms_data['last_name']}'")
             return pms_data, match_info
 
     return None
@@ -261,7 +263,11 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, Union[dict, List[dict]
                 writer = csv.DictWriter(outfile, fieldnames=fieldnames)
                 writer.writeheader()
 
-                for row in reader:
+                # Convert reader to list to get total count for progress bar
+                rows = list(reader)
+                
+                # Process rows with progress bar (always goes to stderr to stay visible)
+                for row in tqdm(rows, desc="Processing DTX records", unit="records", file=sys.stderr):
                     stats['total_records'] += 1
 
                     # Build DTX record for matching
@@ -374,8 +380,8 @@ def _log_unchanged(old_values: dict, match_info: dict) -> None:
 
 
 def _print_stats(stats: dict, output_file: Optional[str]) -> None:
-    """Print processing statistics to stderr."""
-    # Log summary
+    """Print processing statistics."""
+    # Log summary (goes to logging destination)
     logging.info(
         f"Processing complete: {stats['total_records']} records processed, "
         f"{stats['matches_found']} matches found, {stats['records_updated']} records updated, "
@@ -384,21 +390,19 @@ def _print_stats(stats: dict, output_file: Optional[str]) -> None:
         f"{stats['partial_name_matches']} partial name matches, {stats['pms_gender_errors']} PMS gender errors corrected"
     )
 
-    # Print to stderr (won't interfere with CSV output to stdout)
-    print(f"\nProcessing complete:", file=sys.stderr)
-    print(
-        f"Total records processed: {stats['total_records']}", file=sys.stderr)
-    print(f"Matches found: {stats['matches_found']}", file=sys.stderr)
-    print(f"Records updated: {stats['records_updated']}", file=sys.stderr)
-    print(
-        f"Records unchanged (already correct): {stats['records_unchanged']}", file=sys.stderr)
-    print(f"Gender corrections: {stats['gender_mismatches']}", file=sys.stderr)
-    print(f"Date corrections: {stats['date_corrections']}", file=sys.stderr)
-    print(f"Name flips corrected: {stats['name_flips']}", file=sys.stderr)
-    print(
-        f"Partial name matches: {stats['partial_name_matches']}", file=sys.stderr)
-    print(
-        f"PMS gender errors corrected: {stats['pms_gender_errors']}", file=sys.stderr)
+    # Print to stdout if CSV went to file, stderr if CSV went to stdout
+    stats_output = sys.stdout if output_file else sys.stderr
+    
+    print(f"\nProcessing complete:", file=stats_output)
+    print(f"Total records processed: {stats['total_records']}", file=stats_output)
+    print(f"Matches found: {stats['matches_found']}", file=stats_output)
+    print(f"Records updated: {stats['records_updated']}", file=stats_output)
+    print(f"Records unchanged (already correct): {stats['records_unchanged']}", file=stats_output)
+    print(f"Gender corrections: {stats['gender_mismatches']}", file=stats_output)
+    print(f"Date corrections: {stats['date_corrections']}", file=stats_output)
+    print(f"Name flips corrected: {stats['name_flips']}", file=stats_output)
+    print(f"Partial name matches: {stats['partial_name_matches']}", file=stats_output)
+    print(f"PMS gender errors corrected: {stats['pms_gender_errors']}", file=stats_output)
 
     if output_file:
-        print(f"Output written to: {output_file}", file=sys.stderr)
+        print(f"Output written to: {output_file}", file=stats_output)

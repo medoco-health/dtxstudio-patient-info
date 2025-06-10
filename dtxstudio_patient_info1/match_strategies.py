@@ -44,6 +44,7 @@ def try_exact_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[d
     match_key = create_match_key_exact(family_name, given_name, sex, dob)
     if match_key in pms_lookup:
         pms_data = _extract_candidate_data(pms_lookup[match_key])
+        logging.debug(f"EXACT_MATCH: {given_name} {family_name}")
         return pms_data, {"type": "exact", "is_gender_mismatch": False, "is_name_flip": False}
 
     # Loose match (names and DOB match, but gender might differ)
@@ -51,6 +52,7 @@ def try_exact_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[d
     if loose_match_key in pms_lookup:
         pms_data = _extract_candidate_data(pms_lookup[loose_match_key])
         is_gender_mismatch = (sex != pms_data['gender'])
+        logging.debug(f"LOOSE_MATCH: {given_name} {family_name} (gender mismatch: {is_gender_mismatch})")
         return pms_data, {"type": "loose", "is_gender_mismatch": is_gender_mismatch, "is_name_flip": False}
 
     return None
@@ -71,6 +73,7 @@ def try_partial_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List
         family_name, given_name, sex, dob)
     if no_suffix_key in pms_lookup:
         pms_data = _extract_candidate_data(pms_lookup[no_suffix_key])
+        logging.debug(f"NO_SUFFIX_MATCH: {given_name} {family_name}")
         return pms_data, {"type": "no_suffix_exact", "is_gender_mismatch": False, "is_partial_match": True}
 
     # Try partial name matching (PMS names are substrings of DTX names)
@@ -132,6 +135,7 @@ def try_fuzzy_date_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, Lis
         for candidate in candidates:
             if is_fuzzy_date_match(dob, candidate['dob']):
                 is_gender_mismatch = (sex != candidate['gender'])
+                logging.debug(f"FUZZY_DATE_MATCH: {given_name} {family_name} (DTX date: {dob}, PMS date: {candidate['dob']})")
                 return candidate, {"type": "fuzzy_date", "is_gender_mismatch": is_gender_mismatch, "is_date_correction": True}
 
     return None
