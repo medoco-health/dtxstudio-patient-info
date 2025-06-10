@@ -11,10 +11,11 @@ from datetime import datetime
 
 
 def normalize_string(s: str) -> str:
-    """Normalize string by removing spaces and converting to lowercase."""
+    """Normalize string by removing spaces, apostrophes and converting to lowercase."""
     if not s:
         return ""
-    return re.sub(r'\s+', '', s.lower())
+    # Remove spaces and apostrophes, then convert to lowercase
+    return re.sub(r"[\s']+", '', s.lower())
 
 
 def normalize_date(date_str: str) -> str:

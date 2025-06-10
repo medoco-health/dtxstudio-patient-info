@@ -13,8 +13,8 @@ from dtxstudio_patient_info1.controller import (
     extract_gender_from_codice_fiscale,
     load_pms_data,
     process_dtx_file,
-    create_match_key,
-    create_flipped_match_key,
+    create_match_key_exact,
+    create_match_key_flipped_names,
 )
 # Add the parent directory to the path so we can import the module
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -203,7 +203,7 @@ class TestNameFlipping(unittest.TestCase):
             process_dtx_file(dtx_file, pms_lookup, None)
 
         # Verify flipped match key exists in lookup
-        flipped_key = create_flipped_match_key(
+        flipped_key = create_match_key_flipped_names(
             'John', 'Smith', 'MALE', '1985-03-15')
         self.assertIn(flipped_key, pms_lookup,
                       "Flipped match key should exist in PMS lookup")
@@ -250,8 +250,8 @@ class TestNameFlipping(unittest.TestCase):
             pms_lookup = load_pms_data(pms_file)
 
             # Should find match via flipped loose key (names flipped, gender differs)
-            from dtxstudio_patient_info1.controller import create_flipped_loose_match_key
-            flipped_loose_key = create_flipped_loose_match_key(
+            from dtxstudio_patient_info1.controller import create_match_key_no_gender_flipped_names
+            flipped_loose_key = create_match_key_no_gender_flipped_names(
                 'Jane', 'Doe', '1990-06-20')
             self.assertIn(flipped_loose_key, pms_lookup,
                           "Should have flipped loose match")
@@ -297,9 +297,9 @@ class TestNameFlipping(unittest.TestCase):
 
             # Should be stored under name-only key for fuzzy matching
             # Check both normal and flipped name-only keys since both should exist
-            from dtxstudio_patient_info1.controller import create_name_only_match_key
-            normal_name_key = create_name_only_match_key('Maria', 'Garcia')  # PMS order
-            flipped_name_key = create_name_only_match_key('Garcia', 'Maria')  # Flipped order
+            from dtxstudio_patient_info1.controller import create_match_key_name_only
+            normal_name_key = create_match_key_name_only('Maria', 'Garcia')  # PMS order
+            flipped_name_key = create_match_key_name_only('Garcia', 'Maria')  # Flipped order
             
             # At least one of these should exist for fuzzy matching
             has_name_only_key = normal_name_key in pms_lookup or flipped_name_key in pms_lookup
@@ -341,7 +341,7 @@ class TestNameFlipping(unittest.TestCase):
             pms_lookup = load_pms_data(pms_file)
 
             # Should match via flipped exact key
-            flipped_key = create_flipped_match_key(
+            flipped_key = create_match_key_flipped_names(
                 'Carlos', 'Rodriguez', 'MALE', '1975-08-14')
             self.assertIn(flipped_key, pms_lookup,
                           "Should find flipped exact match")
@@ -393,9 +393,9 @@ class TestNameFlipping(unittest.TestCase):
 
             # Verify gender was corrected in PMS lookup
             # Should be stored with corrected gender
-            corrected_key = create_match_key(
+            corrected_key = create_match_key_exact(
                 'Bianchi', 'Anna', 'FEMALE', '1992-04-25')
-            flipped_corrected_key = create_flipped_match_key(
+            flipped_corrected_key = create_match_key_flipped_names(
                 'Bianchi', 'Anna', 'FEMALE', '1992-04-25')
 
             # One of these should exist (depending on how it's stored)
@@ -423,12 +423,12 @@ class TestNameFlipping(unittest.TestCase):
         """Test that flipped match keys are created correctly."""
 
         # Normal key
-        normal_key = create_match_key('Smith', 'John', 'MALE', '1985-03-15')
+        normal_key = create_match_key_exact('Smith', 'John', 'MALE', '1985-03-15')
         expected_normal = "smith|john|male|1985-03-15"
         self.assertEqual(normal_key, expected_normal)
 
         # Flipped key should swap first two components
-        flipped_key = create_flipped_match_key(
+        flipped_key = create_match_key_flipped_names(
             'Smith', 'John', 'MALE', '1985-03-15')
         expected_flipped = "john|smith|male|1985-03-15"  # given|family swapped
         self.assertEqual(flipped_key, expected_flipped)

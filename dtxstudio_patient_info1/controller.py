@@ -14,12 +14,12 @@ import logging
 from typing import Dict, Optional
 
 from dtxstudio_patient_info1.match_keys import (
-    create_match_key,
-    create_loose_match_key,
-    create_name_only_match_key,
-    create_flipped_match_key,
-    create_flipped_loose_match_key,
-    create_partial_match_key,
+    create_match_key_exact,
+    create_match_key_no_gender,
+    create_match_key_name_only,
+    create_match_key_flipped_names,
+    create_match_key_no_gender_flipped_names,
+    create_match_key_no_suffix,
     create_partial_loose_match_key
 )
 
@@ -72,21 +72,6 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
 
                 # Store with exact match key (including gender)
                 if all([family_name, given_name, sex, dob, custom_identifier]):
-                    match_key = create_match_key(
-                        family_name, given_name, corrected_sex, dob)
-                    # Also store with loose match key (without gender)
-                    loose_match_key = create_loose_match_key(
-                        family_name, given_name, dob)
-                    # Store with name-only key for fuzzy date matching
-                    name_only_key = create_name_only_match_key(
-                        family_name, given_name)
-
-                    # Store with flipped name keys (for name reversal detection)
-                    flipped_match_key = create_flipped_match_key(
-                        family_name, given_name, corrected_sex, dob)
-                    flipped_loose_match_key = create_flipped_loose_match_key(
-                        family_name, given_name, dob)
-
                     # Store all the data we want to update
                     pms_data = {
                         'custom_identifier': custom_identifier,
@@ -97,6 +82,21 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         'dob': dob,
                         'is_pms_gender_error': is_pms_gender_error
                     }
+
+                    match_key = create_match_key_exact(
+                        family_name, given_name, corrected_sex, dob)
+                    # Also store with loose match key (without gender)
+                    loose_match_key = create_match_key_no_gender(
+                        family_name, given_name, dob)
+                    # Store with name-only key for fuzzy date matching
+                    name_only_key = create_match_key_name_only(
+                        family_name, given_name)
+
+                    # Store with flipped name keys (for name reversal detection)
+                    flipped_match_key = create_match_key_flipped_names(
+                        family_name, given_name, corrected_sex, dob)
+                    flipped_loose_match_key = create_match_key_no_gender_flipped_names(
+                        family_name, given_name, dob)
 
                     pms_lookup[match_key] = pms_data
                     # Also store under loose key if not already present
@@ -115,8 +115,8 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                         pms_lookup[name_only_key].append(pms_data)
 
                     # Store under flipped name-only key for fuzzy matching as well
-                    flipped_name_only_key = create_name_only_match_key(
-                        given_name, family_name)  # Flipped order
+                    flipped_name_only_key = create_match_key_name_only(
+                        given_name=given_name, family_name=family_name)  # Flipped order
                     if flipped_name_only_key not in pms_lookup:
                         pms_lookup[flipped_name_only_key] = pms_data
                     elif isinstance(pms_lookup[flipped_name_only_key], dict):
@@ -193,19 +193,19 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     dob = row.get('dob', '')
 
                     # Create match keys
-                    match_key = create_match_key(
+                    match_key = create_match_key_exact(
                         family_name, given_name, sex, dob)
-                    loose_match_key = create_loose_match_key(
+                    loose_match_key = create_match_key_no_gender(
                         family_name, given_name, dob)
 
                     # Create flipped name keys
-                    flipped_match_key = create_flipped_match_key(
+                    flipped_match_key = create_match_key_flipped_names(
                         family_name, given_name, sex, dob)
-                    flipped_loose_match_key = create_flipped_loose_match_key(
+                    flipped_loose_match_key = create_match_key_no_gender_flipped_names(
                         family_name, given_name, dob)
 
                     # Create partial match keys (for PMS names without suffixes)
-                    partial_match_key = create_partial_match_key(
+                    partial_match_key = create_match_key_no_suffix(
                         family_name, given_name, sex, dob)
                     partial_loose_match_key = create_partial_loose_match_key(
                         family_name, given_name, dob)
@@ -269,7 +269,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
 
                         if not pms_data:
                             # Try fuzzy date matching (names match, dates similar)
-                            name_only_key = create_name_only_match_key(
+                            name_only_key = create_match_key_name_only(
                                 family_name, given_name)
                             if name_only_key in pms_lookup:
                                 candidates = pms_lookup[name_only_key]
