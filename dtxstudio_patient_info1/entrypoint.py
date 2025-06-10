@@ -7,6 +7,7 @@ Date: 2025-06-10
 
 import argparse
 import logging
+import sys
 
 from dtxstudio_patient_info1.controller import load_pms_data, process_dtx_file
 
@@ -48,15 +49,21 @@ Examples:
         print(f"Output file: {args.output}")
         print()
 
-    # Load PMS data for lookup
-    logging.info("Loading PMS reference data...")
-    pms_lookup = load_pms_data(args.pms_file)
+    try:
+        # Load PMS data for lookup
+        logging.info("Loading PMS reference data...")
+        pms_lookup = load_pms_data(args.pms_file)
 
-    # Process DTX file and create updated output
-    logging.info("Processing DTX file...")
-    process_dtx_file(args.dtx_file, pms_lookup, args.output)
+        # Process DTX file and create updated output
+        logging.info("Processing DTX file...")
+        process_dtx_file(args.dtx_file, pms_lookup, args.output)
 
-    logging.info("Done!")
+        logging.info("Done!")
+    
+    except KeyboardInterrupt:
+        print("\n\nProcess interrupted by user (Ctrl+C)", file=sys.stderr)
+        print("Partial results may have been written to output file.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
