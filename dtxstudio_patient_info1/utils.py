@@ -6,16 +6,25 @@ Date: 2025-06-10
 
 
 import re
+import unicodedata
 from typing import Optional
 from datetime import datetime
 
 
 def normalize_string(s: str) -> str:
-    """Normalize string by removing spaces, apostrophes and converting to lowercase."""
+    """Normalize string by removing spaces, apostrophes, accents and converting to lowercase."""
     if not s:
         return ""
+
+    # Remove accents and diacritical marks
+    # NFD = Canonical Decomposition, separates characters from their accents
+    normalized = unicodedata.normalize('NFD', s)
+    # Remove all combining characters (accents, diacriticals)
+    ascii_text = ''.join(
+        char for char in normalized if unicodedata.category(char) != 'Mn')
+
     # Remove spaces and apostrophes, then convert to lowercase
-    return re.sub(r"[\s']+", '', s.lower())
+    return re.sub(r"[\s']+", '', ascii_text.lower())
 
 
 def normalize_date(date_str: str) -> str:
