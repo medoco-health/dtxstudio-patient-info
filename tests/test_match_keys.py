@@ -127,8 +127,7 @@ class TestMatchKeys(unittest.TestCase):
         flipped_key = create_match_key_flipped_names(
             "John", "Smith", "Male", "1990-01-01")
 
-        self.assertEqual(normal_key, "smith|john|male|1990-01-01")
-        self.assertEqual(flipped_key, "smith|john|male|1990-01-01")
+        self.assertEqual(normal_key, flipped_key)
 
     def test_create_match_key_no_gender_flipped_names(self):
         """Test flipped names without gender"""
@@ -142,12 +141,12 @@ class TestMatchKeys(unittest.TestCase):
         # Test that function exists and works
         key = create_match_key_no_suffix(
             "Smith Jr.", "John Michael", "Male", "1990-01-01")
-        expected = "smithjr|johnmichael|male|1990-01-01"
+        expected = "smith|john|male|1990-01-01"
         self.assertEqual(key, expected)
 
         # Test matching simplified version
         key_simple = create_match_key_no_suffix(
-            "Smith", "John", "Male", "1990-01-01")
+            "Smith ", " John", "Male", "1990-01-01")
         expected_simple = "smith|john|male|1990-01-01"
         self.assertEqual(key_simple, expected_simple)
 

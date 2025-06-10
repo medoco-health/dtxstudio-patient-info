@@ -20,7 +20,6 @@ from dtxstudio_patient_info1.match_keys import (
     create_match_key_flipped_names,
     create_match_key_no_gender_flipped_names,
     create_match_key_no_suffix,
-    create_partial_loose_match_key
 )
 
 from dtxstudio_patient_info1.utils import (
