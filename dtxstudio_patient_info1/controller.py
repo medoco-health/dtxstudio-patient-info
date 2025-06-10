@@ -123,6 +123,11 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
                         family_name, given_name, corrected_sex, dob)
                     flipped_loose_match_key = create_match_key_no_gender_flipped_names(
                         family_name, given_name, dob)
+                    
+                    # Store with no-suffix keys (for DTX names with suffixes)
+                    no_suffix_key = create_match_key_no_suffix(
+                        family_name, given_name, corrected_sex, dob)
+                    
                     # Store under flipped name-only key for fuzzy matching as well
                     flipped_name_only_key = create_match_key_name_only(
                         given_name=family_name, family_name=given_name)  # Flipped order
@@ -135,6 +140,7 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
                     _add_to_lookup(pms_lookup, flipped_match_key, pms_data)
                     _add_to_lookup(
                         pms_lookup, flipped_loose_match_key, pms_data)
+                    _add_to_lookup(pms_lookup, no_suffix_key, pms_data)
                     _add_to_lookup(pms_lookup, flipped_name_only_key,
                                    pms_data, allow_multiple=True)
 

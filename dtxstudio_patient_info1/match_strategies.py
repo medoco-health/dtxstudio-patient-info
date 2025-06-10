@@ -23,12 +23,12 @@ from dtxstudio_patient_info1.match_keys import (
     create_match_key_no_suffix,
 )
 
+
 def _extract_candidate_data(candidate: Union[dict, List[dict]]) -> dict:
     """Extract first candidate if it's a list, or return the dict."""
     if isinstance(candidate, list):
         return candidate[0]
     return candidate
-
 
 
 def try_exact_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dict]]]) -> Optional[tuple]:
@@ -95,6 +95,13 @@ def try_partial_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List
     sex = dtx_record['sex']
     dob = dtx_record['dob']
 
+    # Try no-suffix matching first (DTX has suffixes, PMS doesn't)
+    no_suffix_key = create_match_key_no_suffix(
+        family_name, given_name, sex, dob)
+    if no_suffix_key in pms_lookup:
+        pms_data = _extract_candidate_data(pms_lookup[no_suffix_key])
+        return pms_data, {"type": "no_suffix_exact", "is_gender_mismatch": False, "is_partial_match": True}
+
     # Try partial name matching (PMS names are substrings of DTX names)
     for pms_candidate in pms_lookup.values():
         if isinstance(pms_candidate, dict):
@@ -157,4 +164,3 @@ def try_fuzzy_date_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, Lis
                 return candidate, {"type": "fuzzy_date", "is_gender_mismatch": is_gender_mismatch, "is_date_correction": True}
 
     return None
-
