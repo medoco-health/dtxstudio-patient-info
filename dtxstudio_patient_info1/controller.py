@@ -160,7 +160,7 @@ def _find_pms_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dic
         result = strategy(dtx_record, pms_lookup)
         if result:
             return result
-        
+
         # Try flipped names for the same strategy
         flipped_dtx_record = {
             'family_name': dtx_record['given_name'],  # Swap names
@@ -173,7 +173,8 @@ def _find_pms_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dic
             # Mark as name flip and return
             pms_data, match_info = result
             match_info['is_name_flip'] = True
-            logging.debug(f"NAME_FLIP_DETECTED: DTX '{dtx_record['given_name']} {dtx_record['family_name']}' matched PMS '{pms_data['first_name']} {pms_data['last_name']}'")
+            logging.debug(
+                f"NAME_FLIP_DETECTED: DTX '{dtx_record['given_name']} {dtx_record['family_name']}' matched PMS '{pms_data['first_name']} {pms_data['last_name']}'")
             return pms_data, match_info
 
     return None
@@ -246,6 +247,9 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, Union[dict, List[dict]
         'total_records': 0
     }
 
+    # Track used pms_id values to ensure uniqueness
+    used_pms_ids = set()
+
     try:
         with open(dtx_file, 'r', encoding='utf-8') as infile:
             reader = csv.DictReader(infile)
@@ -265,7 +269,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, Union[dict, List[dict]
 
                 # Convert reader to list to get total count for progress bar
                 rows = list(reader)
-                
+
                 # Process rows with progress bar (always goes to stderr to stay visible)
                 for row in tqdm(rows, desc="Processing DTX records", unit="records", file=sys.stderr):
                     stats['total_records'] += 1
@@ -281,7 +285,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, Union[dict, List[dict]
                         stats['matches_found'] += 1
 
                         # Process the match and update row if needed
-                        _process_match(row, pms_data, match_info, stats)
+                        _process_match(row, pms_data, match_info,
+                                       stats, used_pms_ids)
 
                     # Write the row (modified or original)
                     writer.writerow(row)
@@ -305,7 +310,7 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, Union[dict, List[dict]
     _print_stats(stats, output_file)
 
 
-def _process_match(row: dict, pms_data: dict, match_info: dict, stats: dict) -> None:
+def _process_match(row: dict, pms_data: dict, match_info: dict, stats: dict, used_pms_ids: set) -> None:
     """Process a successful match and update the row if needed."""
     # Extract old values
     old_values = {
@@ -319,11 +324,15 @@ def _process_match(row: dict, pms_data: dict, match_info: dict, stats: dict) -> 
         'dob': row.get('dob', '')
     }
 
+    # Generate unique pms_id
+    base_pms_id = pms_data['custom_identifier']
+    unique_pms_id = _generate_unique_pms_id(base_pms_id, used_pms_ids)
+
     # Build new values from PMS data
     new_values = {
-        'pms_id': pms_data['custom_identifier'],
-        'practice_pms_id': '',  # Should be empty for DTX 
-        'dicom_id': pms_data['custom_identifier'],
+        'pms_id': unique_pms_id,
+        'practice_pms_id': '',  # Should be empty for DTX
+        'dicom_id': unique_pms_id,  # Use same unique ID for consistency
         'given_name': pms_data['first_name'],
         'family_name': pms_data['last_name'],
         'middle_name': pms_data['middle_initial'],
@@ -392,17 +401,48 @@ def _print_stats(stats: dict, output_file: Optional[str]) -> None:
 
     # Print to stdout if CSV went to file, stderr if CSV went to stdout
     stats_output = sys.stdout if output_file else sys.stderr
-    
+
     print(f"\nProcessing complete:", file=stats_output)
-    print(f"Total records processed: {stats['total_records']}", file=stats_output)
+    print(
+        f"Total records processed: {stats['total_records']}", file=stats_output)
     print(f"Matches found: {stats['matches_found']}", file=stats_output)
     print(f"Records updated: {stats['records_updated']}", file=stats_output)
-    print(f"Records unchanged (already correct): {stats['records_unchanged']}", file=stats_output)
-    print(f"Gender corrections: {stats['gender_mismatches']}", file=stats_output)
+    print(
+        f"Records unchanged (already correct): {stats['records_unchanged']}", file=stats_output)
+    print(
+        f"Gender corrections: {stats['gender_mismatches']}", file=stats_output)
     print(f"Date corrections: {stats['date_corrections']}", file=stats_output)
     print(f"Name flips corrected: {stats['name_flips']}", file=stats_output)
-    print(f"Partial name matches: {stats['partial_name_matches']}", file=stats_output)
-    print(f"PMS gender errors corrected: {stats['pms_gender_errors']}", file=stats_output)
+    print(
+        f"Partial name matches: {stats['partial_name_matches']}", file=stats_output)
+    print(
+        f"PMS gender errors corrected: {stats['pms_gender_errors']}", file=stats_output)
 
     if output_file:
         print(f"Output written to: {output_file}", file=stats_output)
+
+
+def _generate_unique_pms_id(base_id: str, used_ids: set) -> str:
+    """Generate a unique PMS ID by adding suffix if needed.
+
+    Args:
+        base_id: The original PMS ID from the data
+        used_ids: Set of already used IDs
+
+    Returns:
+        Unique PMS ID (with suffix if needed)
+    """
+    if base_id not in used_ids:
+        used_ids.add(base_id)
+        return base_id
+
+    # Generate suffixed version
+    counter = 1
+    while True:
+        unique_id = f"{base_id}-{counter}"
+        if unique_id not in used_ids:
+            used_ids.add(unique_id)
+            logging.debug(
+                f"DUPLICATE_PMS_ID: '{base_id}' already used, assigning '{unique_id}'")
+            return unique_id
+        counter += 1
