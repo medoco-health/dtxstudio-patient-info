@@ -25,23 +25,24 @@ classifiers = [
 ]
 keywords = ["healthcare", "patient-matching", "clinical-informatics", "dtx", "pms", "record-linkage"]
 dependencies = [
-    "tqdm (>=4.67.1,<5.0.0)",
-    "requests (>=2.32.4,<3.0.0)",
-    "urllib3 (>=2.4.0,<3.0.0)"
+    "tqdm>=4.67.1,<5.0.0",
+    "requests>=2.25.0",
+    "urllib3>=1.26.0"
 ]
 
 [project.scripts]
 # Main entrypoints
-dtxstudio-patient-updater2 = "dtxstudio_patient_info2:main.main"
-dtxstudio-patient-updater1 = "dtxstudio_patient_info1:main.main"
-dtx-merge-patients = "dtxstudio_patient_info1.dtx_merge_patients:main"
+dtxstudio-patient-updater2 = "dtxstudio_patient_info2.main:main"
+dtxstudio-patient-updater1 = "dtxstudio_patient_info1.update_patient_info:main"
+dtx-merge-patients = "dtxstudio_patient_info1.merge_patients:main"
+dtx-deduplicate = "dtxstudio_patient_info1.dtx_deduplicate:main"
 
 # Utility scripts
 test-clinical-framework = "test_clinical_framework:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["clinical_matching*", "*.py"]
+include = ["dtxstudio_patient_info1*", "dtxstudio_patient_info2*"]
 exclude = ["tests*", "*.tests*", "*.tests.*", "tests.*"]
 
 [tool.setuptools.package-data]
@@ -66,7 +67,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["clinical_matching", "patient_info_updater", "clinical_patient_updater"]
+source = ["dtxstudio_patient_info1", "dtxstudio_patient_info2"]
 omit = [
     "*/tests/*",
     "*/test_*",
