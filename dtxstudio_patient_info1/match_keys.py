@@ -37,26 +37,6 @@ def create_match_key_name_only(family_name: str, given_name: str) -> str:
     return f"{normalize_string(family_name)}|{normalize_string(given_name)}"
 
 
-def create_match_key_flipped_names(family_name: str, given_name: str, sex: str, dob: str) -> str:
-    """Create a normalized key for matching patients with flipped names.
-
-    Handles cases where first/last names are swapped in data entry:
-    - "Smith" + "John" → "john|smith|m|1990-01-01"
-    - Matches "John Smith" entered as family="John", given="Smith"
-    """
-    return f"{normalize_string(given_name)}|{normalize_string(family_name)}|{normalize_string(sex)}|{normalize_date(dob)}"
-
-
-def create_match_key_no_gender_flipped_names(family_name: str, given_name: str, dob: str) -> str:
-    """Create a normalized key for loose matching patients with flipped names without gender.
-
-    Handles name swaps without gender constraints:
-    - "Smith" + "John" + "1990-01-01" → "john|smith|1990-01-01"
-    - Matches patients with flipped names regardless of sex field
-    """
-    return f"{normalize_string(given_name)}|{normalize_string(family_name)}|{normalize_date(dob)}"
-
-
 def create_match_key_no_suffix(family_name: str, given_name: str, sex: str, dob: str) -> str:
     """Create a normalized key for partial name matching (PMS names without suffixes).
 

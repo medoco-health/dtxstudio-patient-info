@@ -17,8 +17,6 @@ from dtxstudio_patient_info1.match_keys import (
     create_match_key_exact,
     create_match_key_no_gender,
     create_match_key_name_only,
-    create_match_key_flipped_names,
-    create_match_key_no_gender_flipped_names,
     create_match_key_no_suffix,
 )
 
@@ -28,7 +26,6 @@ from dtxstudio_patient_info1.utils import (
 
 from dtxstudio_patient_info1.match_strategies import (
     try_exact_matches,
-    try_flipped_matches,
     try_partial_matches,
     try_fuzzy_date_match
 )
@@ -122,32 +119,16 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
                     # Store with name-only key for fuzzy date matching
                     name_only_key = create_match_key_name_only(
                         family_name, given_name)
-
-                    # Store with flipped name keys (for name reversal detection)
-                    flipped_match_key = create_match_key_flipped_names(
-                        family_name, given_name, corrected_sex, dob)
-                    flipped_loose_match_key = create_match_key_no_gender_flipped_names(
-                        family_name, given_name, dob)
-
                     # Store with no-suffix keys (for DTX names with suffixes)
                     no_suffix_key = create_match_key_no_suffix(
                         family_name, given_name, corrected_sex, dob)
-
-                    # Store under flipped name-only key for fuzzy matching as well
-                    flipped_name_only_key = create_match_key_name_only(
-                        given_name=family_name, family_name=given_name)  # Flipped order
 
                     # Store all match keys using the helper function
                     _add_to_lookup(pms_lookup, match_key, pms_data)
                     _add_to_lookup(pms_lookup, loose_match_key, pms_data)
                     _add_to_lookup(pms_lookup, name_only_key,
                                    pms_data, allow_multiple=True)
-                    _add_to_lookup(pms_lookup, flipped_match_key, pms_data)
-                    _add_to_lookup(
-                        pms_lookup, flipped_loose_match_key, pms_data)
                     _add_to_lookup(pms_lookup, no_suffix_key, pms_data)
-                    _add_to_lookup(pms_lookup, flipped_name_only_key,
-                                   pms_data, allow_multiple=True)
 
     except FileNotFoundError:
         logging.error(f"PMS file '{pms_file}' not found.")
@@ -166,17 +147,32 @@ def _find_pms_match(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dic
     Returns: (pms_data, match_info) or None
     """
     # Try matching strategies in order of preference
+    # Each strategy tries both normal and flipped names before moving to next strategy
     strategies = [
         try_exact_matches,
-        try_flipped_matches,
         try_partial_matches,
         try_fuzzy_date_match
     ]
 
     for strategy in strategies:
+        # Try normal names first
         result = strategy(dtx_record, pms_lookup)
         if result:
             return result
+        
+        # Try flipped names for the same strategy
+        flipped_dtx_record = {
+            'family_name': dtx_record['given_name'],  # Swap names
+            'given_name': dtx_record['family_name'],
+            'sex': dtx_record['sex'],
+            'dob': dtx_record['dob']
+        }
+        result = strategy(flipped_dtx_record, pms_lookup)
+        if result:
+            # Mark as name flip and return
+            pms_data, match_info = result
+            match_info['is_name_flip'] = True
+            return pms_data, match_info
 
     return None
 
@@ -364,6 +360,8 @@ def _log_unchanged(old_values: dict, match_info: dict) -> None:
         log_prefix.append("GENDER MISMATCH")
     if match_info.get('is_date_correction'):
         log_prefix.append("DATE CORRECTION")
+    if match_info.get('is_name_flip'):
+        log_prefix.append("NAME FLIP")
 
     prefix_str = " - ".join(log_prefix)
     name = f"{old_values['given_name']} {old_values['family_name']}"

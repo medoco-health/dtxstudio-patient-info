@@ -5,6 +5,7 @@ Date: 2025-06-10
 """
 
 from typing import Dict, Union, List, Optional
+import logging
 
 from dtxstudio_patient_info1.utils import (
     normalize_string,
@@ -18,8 +19,6 @@ from dtxstudio_patient_info1.match_keys import (
     create_match_key_exact,
     create_match_key_no_gender,
     create_match_key_name_only,
-    create_match_key_flipped_names,
-    create_match_key_no_gender_flipped_names,
     create_match_key_no_suffix,
 )
 
@@ -53,34 +52,6 @@ def try_exact_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[d
         pms_data = _extract_candidate_data(pms_lookup[loose_match_key])
         is_gender_mismatch = (sex != pms_data['gender'])
         return pms_data, {"type": "loose", "is_gender_mismatch": is_gender_mismatch, "is_name_flip": False}
-
-    return None
-
-
-def try_flipped_matches(dtx_record: dict, pms_lookup: Dict[str, Union[dict, List[dict]]]) -> Optional[tuple]:
-    """Try flipped name matching strategies.
-
-    Returns: (pms_data, match_info) or None
-    """
-    family_name = dtx_record['family_name']
-    given_name = dtx_record['given_name']
-    sex = dtx_record['sex']
-    dob = dtx_record['dob']
-
-    # Flipped name exact match
-    flipped_match_key = create_match_key_flipped_names(
-        family_name, given_name, sex, dob)
-    if flipped_match_key in pms_lookup:
-        pms_data = _extract_candidate_data(pms_lookup[flipped_match_key])
-        return pms_data, {"type": "flipped_exact", "is_gender_mismatch": False, "is_name_flip": True}
-
-    # Flipped name loose match
-    flipped_loose_match_key = create_match_key_no_gender_flipped_names(
-        family_name, given_name, dob)
-    if flipped_loose_match_key in pms_lookup:
-        pms_data = _extract_candidate_data(pms_lookup[flipped_loose_match_key])
-        is_gender_mismatch = (sex != pms_data['gender'])
-        return pms_data, {"type": "flipped_loose", "is_gender_mismatch": is_gender_mismatch, "is_name_flip": True}
 
     return None
 
