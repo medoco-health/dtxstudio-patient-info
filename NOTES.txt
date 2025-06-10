@@ -1,0 +1,31 @@
+Hi Toni,
+I am not sure how far you are and hope I am not too late. The OPPWeb is able to merge patients based on pms_id.
+So it cannot merge patients with identical pms_ids but a postfix to the duplicated pms_id would make the trick (e.g. '-dup1').
+To enable the service the Core Conf Wiz needs to be started and the PMS Communication on the Integration Features dialog checked: 
+Important: By clicking Next Core will be down for a couple of minutes.
+ 
+Here a curl script to use the OPPWeb API.
+ 
+dtx_merge_patients.bat
+ 
+The bearer token can be found in the Core UI - advanced settings - security
+ 
+ 
+Another request you had: 
+Starting from Core 4.1.4.1 (currently installed) there is an auto-complete feature for scan requests that became overdue. Default: 90 days. However, you can modify it by adding a line to the core.rest.properties (Core installation folder \etc).
+scanrequestgroup.cleanup.afterscandate.days: is amount of days that today is after the scanDate of the ScanRequestGroup
+ 
+Also interesting: scanrequestgroup.cleanup.frequency.minutes
+ 
+
+## TODO
+
+1. Generate a new output.csv which will:
+   - Contain the pms_id, with a suffix '-dup1' for all the duplicate ones.
+   - Leave empty the practice_pms_id
+   - Ensure dicom_id = pms_id without suffix, or with, doenst matter will be merged and deleted anyways.
+   - Also output a new source/target list
+
+2. Run Patient Import: should not longer give me errors, becasue the pms_ids are all different.
+
+3. Feed the list to the OPP web API, as example above.
