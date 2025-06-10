@@ -11,7 +11,7 @@ The resulting output file can then be used to update the DTX patient records by 
 import csv
 import sys
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, List
 
 from dtxstudio_patient_info1.match_keys import (
     create_match_key_exact,
@@ -27,10 +27,35 @@ from dtxstudio_patient_info1.utils import (
     normalize_date,
     is_partial_name_match,
     is_fuzzy_date_match,
+    is_partial_name_word_match,
     extract_gender_from_codice_fiscale
 )
 
-def load_pms_data(pms_file: str) -> Dict[str, dict]:
+
+def _add_to_lookup(pms_lookup: Dict[str, Union[dict, List[dict]]], key: str, pms_data: dict, allow_multiple: bool = False) -> None:
+    """
+    Helper function to add PMS data to lookup dictionary.
+
+    Args:
+        pms_lookup: The lookup dictionary to add to
+        key: The match key
+        pms_data: The PMS patient data
+        allow_multiple: If True, allows multiple candidates for the same key (stores as list)
+    """
+    if key not in pms_lookup:
+        pms_lookup[key] = pms_data
+    elif allow_multiple:
+        existing = pms_lookup[key]
+        if isinstance(existing, dict):
+            # Convert to list if we have multiple candidates
+            pms_lookup[key] = [existing, pms_data]
+        elif isinstance(existing, list):
+            # Add to existing list
+            existing.append(pms_data)
+    # If allow_multiple is False and key exists, don't overwrite (keep first occurrence)
+
+
+def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
     """
     Load PMS CSV data and create a lookup dictionary.
 
@@ -97,40 +122,20 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
                     flipped_loose_match_key = create_match_key_no_gender_flipped_names(
                         family_name, given_name, dob)
 
-                    pms_lookup[match_key] = pms_data
-                    # Also store under loose key if not already present
-                    if loose_match_key not in pms_lookup:
-                        pms_lookup[loose_match_key] = pms_data
-
-                    # Store under name-only key for fuzzy date matching
-                    if name_only_key not in pms_lookup:
-                        pms_lookup[name_only_key] = pms_data
-                    elif isinstance(pms_lookup[name_only_key], dict):
-                        # Convert to list if we have multiple candidates
-                        pms_lookup[name_only_key] = [
-                            pms_lookup[name_only_key], pms_data]
-                    elif isinstance(pms_lookup[name_only_key], list):
-                        # Add to existing list
-                        pms_lookup[name_only_key].append(pms_data)
+                    # Store all match keys using the helper function
+                    _add_to_lookup(pms_lookup, match_key, pms_data)
+                    _add_to_lookup(pms_lookup, loose_match_key, pms_data)
+                    _add_to_lookup(pms_lookup, name_only_key,
+                                   pms_data, allow_multiple=True)
+                    _add_to_lookup(pms_lookup, flipped_match_key, pms_data)
+                    _add_to_lookup(
+                        pms_lookup, flipped_loose_match_key, pms_data)
 
                     # Store under flipped name-only key for fuzzy matching as well
                     flipped_name_only_key = create_match_key_name_only(
-                        given_name=given_name, family_name=family_name)  # Flipped order
-                    if flipped_name_only_key not in pms_lookup:
-                        pms_lookup[flipped_name_only_key] = pms_data
-                    elif isinstance(pms_lookup[flipped_name_only_key], dict):
-                        # Convert to list if we have multiple candidates
-                        pms_lookup[flipped_name_only_key] = [
-                            pms_lookup[flipped_name_only_key], pms_data]
-                    elif isinstance(pms_lookup[flipped_name_only_key], list):
-                        # Add to existing list
-                        pms_lookup[flipped_name_only_key].append(pms_data)
-
-                    # Store under flipped keys if not already present
-                    if flipped_match_key not in pms_lookup:
-                        pms_lookup[flipped_match_key] = pms_data
-                    if flipped_loose_match_key not in pms_lookup:
-                        pms_lookup[flipped_loose_match_key] = pms_data
+                        given_name=family_name, family_name=given_name)  # Flipped order
+                    _add_to_lookup(pms_lookup, flipped_name_only_key,
+                                   pms_data, allow_multiple=True)
 
     except FileNotFoundError:
         logging.error(f"PMS file '{pms_file}' not found.")
@@ -143,7 +148,7 @@ def load_pms_data(pms_file: str) -> Dict[str, dict]:
     return pms_lookup
 
 
-def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Optional[str] = None) -> None:
+def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, Union[dict, List[dict]]], output_file: Optional[str] = None) -> None:
     """
     Process DTX CSV file and update pms_id with matching custom_identifier.
 
@@ -206,7 +211,8 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     # Create partial match keys (for PMS names without suffixes)
                     partial_match_key = create_match_key_no_suffix(
                         family_name, given_name, sex, dob)
-                    partial_loose_match_key = create_partial_loose_match_key(
+                    # Use no_gender for partial loose matching
+                    partial_loose_match_key = create_match_key_no_gender(
                         family_name, given_name, dob)
 
                     # Check for match in PMS data (exact match first, then loose match, then flipped, then partial, then fuzzy)
@@ -220,20 +226,28 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                     if match_key in pms_lookup:
                         # Exact match (including gender)
                         pms_data = pms_lookup[match_key]
+                        if isinstance(pms_data, list):
+                            pms_data = pms_data[0]  # Take first match
                         match_type = "exact"
                     elif loose_match_key in pms_lookup:
                         # Loose match (names and DOB match, but gender might differ)
                         pms_data = pms_lookup[loose_match_key]
+                        if isinstance(pms_data, list):
+                            pms_data = pms_data[0]  # Take first match
                         is_gender_mismatch = (sex != pms_data['gender'])
                         match_type = "loose"
                     elif flipped_match_key in pms_lookup:
                         # Flipped name exact match
                         pms_data = pms_lookup[flipped_match_key]
+                        if isinstance(pms_data, list):
+                            pms_data = pms_data[0]  # Take first match
                         is_name_flip = True
                         match_type = "flipped_exact"
                     elif flipped_loose_match_key in pms_lookup:
                         # Flipped name loose match
                         pms_data = pms_lookup[flipped_loose_match_key]
+                        if isinstance(pms_data, list):
+                            pms_data = pms_data[0]  # Take first match
                         is_gender_mismatch = (sex != pms_data['gender'])
                         is_name_flip = True
                         match_type = "flipped_loose"
@@ -265,6 +279,36 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
                                         is_gender_mismatch = True
                                         match_type = "partial_loose"
                                         break
+
+                        if not pms_data:
+                            # Try partial given name matching (any word overlap in given names)
+                            for pms_key, pms_candidate in pms_lookup.items():
+                                if isinstance(pms_candidate, dict):
+                                    pms_family = pms_candidate.get(
+                                        'last_name', '')
+                                    pms_given = pms_candidate.get(
+                                        'first_name', '')
+                                    pms_sex = pms_candidate.get('gender', '')
+                                    pms_dob = pms_candidate.get('dob', '')
+
+                                    # Check if family names match exactly, given names have partial overlap, and DOB matches
+                                    if (normalize_string(pms_family) == normalize_string(family_name) and
+                                        is_partial_name_word_match(given_name, pms_given) and
+                                            normalize_date(pms_dob) == normalize_date(dob)):
+
+                                        if normalize_string(pms_sex) == normalize_string(sex):
+                                            # Exact partial given name match
+                                            pms_data = pms_candidate
+                                            is_partial_match = True
+                                            match_type = "partial_given_exact"
+                                            break
+                                        else:
+                                            # Loose partial given name match
+                                            pms_data = pms_candidate
+                                            is_partial_match = True
+                                            is_gender_mismatch = True
+                                            match_type = "partial_given_loose"
+                                            break
 
                         if not pms_data:
                             # Try fuzzy date matching (names match, dates similar)
@@ -441,4 +485,3 @@ def process_dtx_file(dtx_file: str, pms_lookup: Dict[str, dict], output_file: Op
     print(f"PMS gender errors corrected: {pms_gender_errors}", file=sys.stderr)
     if output_file:
         print(f"Output written to: {output_file}", file=sys.stderr)
-

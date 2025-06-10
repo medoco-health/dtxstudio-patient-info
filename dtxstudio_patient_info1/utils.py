@@ -127,6 +127,31 @@ def is_fuzzy_date_match(date1: str, date2: str, threshold: float = 0.75) -> bool
     return similarity >= threshold
 
 
+def is_partial_name_word_match(name1: str, name2: str) -> bool:
+    """Check if names have partial word matches in both directions.
+
+    Returns True if any word in name1 is found in name2,
+    OR if any word in name2 is found in name1.
+
+    Examples:
+    - "mark leo" vs "mark" → True (mark found in both)
+    - "leo" vs "mark leo" → True (leo found in both)
+    - "john michael" vs "mike" → False (no common words)
+    - "smith jones" vs "smith" → True (smith found in both)
+    """
+    if not name1.strip() or not name2.strip():
+        return False
+
+    # Normalize and split names into words
+    name1_words = set(normalize_string(word)
+                      for word in name1.split() if word.strip())
+    name2_words = set(normalize_string(word)
+                      for word in name2.split() if word.strip())
+
+    # Check if there's any intersection between the word sets
+    return bool(name1_words & name2_words)
+
+
 def extract_gender_from_codice_fiscale(ssn: str) -> Optional[str]:
     """
     Extract gender from Italian codice fiscale (SSN).
