@@ -1,10 +1,11 @@
-#!/usr/bin/env python3
 """
 Patient Info Updater
 
 This script loads patient data from a DTX CSV file and matches it with a PMS CSV file
 based on family_name, given_name, sex, and dob. For matches found, it updates the
 pms_id field with the custom_identifier from the PMS file.
+
+The resulting output file can then be used to update the DTX patient records by uploading it into the Patient Info in DTX Studio Core GUI.
 """
 
 import csv
@@ -12,7 +13,7 @@ import argparse
 import sys
 import logging
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 import re
 
 

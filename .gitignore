@@ -2,3 +2,4 @@ real_data/
 *.pyc
 *.log
 __pycache__/
+Pipfile*
