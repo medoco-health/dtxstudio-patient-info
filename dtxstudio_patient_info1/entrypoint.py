@@ -1,5 +1,15 @@
+"""
+File: entrypoint.py
+Author: amagni@medoco.health
+Date: 2025-06-10
+"""
+
+
 import argparse
 import logging
+
+from dtxstudio_patient_info1.controller import load_pms_data, process_dtx_file
+
 
 def main():
     """Main function to handle command line arguments and orchestrate the process."""

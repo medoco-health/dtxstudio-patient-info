@@ -33,7 +33,7 @@ dependencies = [
 [project.scripts]
 # Main entrypoints
 dtxstudio-patient-updater2 = "dtxstudio_patient_info2.main:main"
-dtxstudio-patient-updater1 = "dtxstudio_patient_info1.update_patient_info:main"
+dtxstudio-patient-updater1 = "dtxstudio_patient_info1.entrypoint:main"
 dtxstudio-patient-merge = "dtxstudio_patient_info1.merge_patients:main"
 
 # Utility scripts
