@@ -1,5 +1,9 @@
 """
-Clinical Patient Matching Framework
+Clinical Patient Matching Framework v2
+
+This is a complete rewrite of the dtxstudio_patient_info1 package, mainly done
+in vibe coding. However, this is incomplete and not yet ready for production
+use.
 
 A clinical informatics-based patient matching system following evidence-based
 practices from peer-reviewed literature for healthcare data integration.

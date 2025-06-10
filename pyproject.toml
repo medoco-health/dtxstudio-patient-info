@@ -31,7 +31,9 @@ dependencies = [
 
 [project.scripts]
 # Main entrypoints
-dtxstudio-patient-updater = "dtxstudio_patient_info:main.main"
+dtxstudio-patient-updater2 = "dtxstudio_patient_info2:main.main"
+dtxstudio-patient-updater1 = "dtxstudio_patient_info1:main.main"
+dtx-merge-patients = "dtxstudio_patient_info1.dtx_merge_patients:main"
 
 # Utility scripts
 test-clinical-framework = "test_clinical_framework:main"

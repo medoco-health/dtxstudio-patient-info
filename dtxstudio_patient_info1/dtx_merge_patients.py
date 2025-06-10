@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 DTX Patient Merge Application - Python Version
 This script merges two patients together using their PMS IDs.
