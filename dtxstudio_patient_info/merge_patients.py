@@ -1,7 +1,8 @@
 """
 DTX Patient Merge Application - Python Version
 This script merges two patients together using their PMS IDs.
-It reads patient ID pairs from a CSV file and calls the PMS OPP Web API.
+
+It reads patient ID pairs from a CSV file like the DTX Patient Info export, where the source pms_id that needs to be merged into another pms_id will have a suffix separated by a dash. So it will first parse the CSV file and group all duplicates toghether into a dict, then it will use that dict to go through the duplicate groups and merge them.
 """
 
 import csv
