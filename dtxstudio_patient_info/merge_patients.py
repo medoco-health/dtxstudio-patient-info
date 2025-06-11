@@ -184,8 +184,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python merge_patients.py input.csv -t your_bearer_token
-  python merge_patients.py updated_patients.csv --token abc123token --hostname 192.168.1.100 --port 8080
+  dtxstudio-patient-merge -t your_bearer_token input.csv 
+  dtxstudio-patient-merge --token abc123token --hostname 192.168.1.100 --port 26854 updated_patients.csv
         """
     )
 
