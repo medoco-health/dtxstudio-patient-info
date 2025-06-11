@@ -14,18 +14,18 @@ import logging
 from typing import Dict, Optional, Union, List
 from tqdm import tqdm
 
-from dtxstudio_patient_info1.match_keys import (
+from dtxstudio_patient_info.match_keys import (
     create_match_key_exact,
     create_match_key_no_gender,
     create_match_key_name_only,
     create_match_key_no_suffix,
 )
 
-from dtxstudio_patient_info1.utils import (
+from dtxstudio_patient_info.utils import (
     extract_gender_from_codice_fiscale
 )
 
-from dtxstudio_patient_info1.match_strategies import (
+from dtxstudio_patient_info.match_strategies import (
     try_exact_matches,
     try_partial_matches,
     try_fuzzy_date_match

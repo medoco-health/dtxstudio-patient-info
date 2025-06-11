@@ -1,5 +1,5 @@
 import unittest
-from dtxstudio_patient_info1.utils import normalize_string
+from dtxstudio_patient_info.utils import normalize_string
 
 
 class TestNormalizeString(unittest.TestCase):

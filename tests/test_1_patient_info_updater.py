@@ -9,7 +9,7 @@ import tempfile
 import csv
 from unittest.mock import patch
 
-from dtxstudio_patient_info1.controller import (
+from dtxstudio_patient_info.controller import (
     extract_gender_from_codice_fiscale,
     load_pms_data,
     process_dtx_file,
@@ -250,7 +250,7 @@ class TestNameFlipping(unittest.TestCase):
             pms_lookup = load_pms_data(pms_file)
 
             # Should find match via flipped loose key (names flipped, gender differs)
-            from dtxstudio_patient_info1.controller import create_match_key_no_gender_flipped_names
+            from dtxstudio_patient_info.controller import create_match_key_no_gender_flipped_names
             flipped_loose_key = create_match_key_no_gender_flipped_names(
                 'Jane', 'Doe', '1990-06-20')
             self.assertIn(flipped_loose_key, pms_lookup,
@@ -297,7 +297,7 @@ class TestNameFlipping(unittest.TestCase):
 
             # Should be stored under name-only key for fuzzy matching
             # Check both normal and flipped name-only keys since both should exist
-            from dtxstudio_patient_info1.controller import create_match_key_name_only
+            from dtxstudio_patient_info.controller import create_match_key_name_only
             normal_name_key = create_match_key_name_only('Maria', 'Garcia')  # PMS order
             flipped_name_key = create_match_key_name_only('Garcia', 'Maria')  # Flipped order
             

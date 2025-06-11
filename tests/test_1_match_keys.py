@@ -4,7 +4,7 @@ Tests all key generation functions and their matching logic
 """
 
 import unittest
-from dtxstudio_patient_info1.match_keys import (
+from dtxstudio_patient_info.match_keys import (
     create_match_key_exact,
     create_match_key_no_gender,
     create_match_key_name_only,

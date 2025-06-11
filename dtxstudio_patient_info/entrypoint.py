@@ -9,7 +9,7 @@ import argparse
 import logging
 import sys
 
-from dtxstudio_patient_info1.controller import load_pms_data, process_dtx_file
+from dtxstudio_patient_info.controller import load_pms_data, process_dtx_file
 
 
 def main():

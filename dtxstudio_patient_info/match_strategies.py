@@ -7,7 +7,7 @@ Date: 2025-06-10
 from typing import Dict, Union, List, Optional
 import logging
 
-from dtxstudio_patient_info1.utils import (
+from dtxstudio_patient_info.utils import (
     normalize_string,
     normalize_date,
     is_partial_name_match,
@@ -15,7 +15,7 @@ from dtxstudio_patient_info1.utils import (
     is_partial_name_word_match
 )
 
-from dtxstudio_patient_info1.match_keys import (
+from dtxstudio_patient_info.match_keys import (
     create_match_key_exact,
     create_match_key_no_gender,
     create_match_key_name_only,

@@ -4,7 +4,7 @@ Author: amagni@medoco.health
 Date: 2025-06-10
 """
 
-from dtxstudio_patient_info1.utils import normalize_string, normalize_date
+from dtxstudio_patient_info.utils import normalize_string, normalize_date
 
 
 def create_match_key_exact(family_name: str, given_name: str, sex: str, dob: str) -> str:
