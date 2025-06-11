@@ -9,39 +9,16 @@ import sys
 import os
 import requests
 import urllib3
+import argparse
 from urllib3.exceptions import InsecureRequestWarning
+from collections import defaultdict
 
 # Suppress SSL warnings for insecure requests
 urllib3.disable_warnings(InsecureRequestWarning)
 
-
-def print_banner():
-    """Print the welcome banner"""
-    print("*" * 55)
-    print("*****Welcome to the DTX Patient Merge Application!*****")
-    print("*" * 55)
-    print()
-
-
-def print_instructions():
-    """Print instructions for the user"""
-    print("*" * 57)
-    print("*****      You will now be asked two questions:     *****")
-    print("*****                                               *****")
-    print("*****The file name that contains the old and new IDs*****")
-    print("*****         and the PMS Bearer Token.             *****")
-    print("*****       Both are REQUIRED to proceed.           *****")
-    print("*" * 57)
-    print()
-    print()
-
-
-def get_user_input():
-    """Get input file name and bearer token from user"""
-    input_file = input("Enter the input file name: ").strip()
-    bearer_token = input("Enter the PMS Bearer Token: ").strip()
-
-    return input_file, bearer_token
+# API Configuration - Default values
+DEFAULT_API_HOSTNAME = "localhost"
+DEFAULT_API_PORT = "44389"
 
 
 def validate_input_file(input_file):
@@ -63,9 +40,37 @@ def validate_input_file(input_file):
         return False
 
 
-def merge_patients(input_file, bearer_token):
+def find_duplicate_pms_ids(input_file):
+    """
+    Find rows with duplicate PMS IDs (same prefix before dash).
+    Returns a dictionary mapping base_id to list of (row_data, pms_id) tuples.
+    """
+    duplicates = defaultdict(list)
+
+    try:
+        with open(input_file, 'r', newline='', encoding='utf-8') as csvfile:
+            reader = csv.DictReader(csvfile)
+
+            for row in reader:
+                pms_id = row.get('pms_id', '').strip()
+                if not pms_id:
+                    continue
+
+                # Extract base ID (prefix before dash)
+                base_id = pms_id.split('-')[0]
+                duplicates[base_id].append((row, pms_id))
+
+    except Exception as e:
+        print(f"Error reading file '{input_file}': {e}")
+        return {}
+
+    # Filter to only keep groups with multiple entries
+    return {base_id: entries for base_id, entries in duplicates.items() if len(entries) > 1}
+
+
+def merge_patients(input_file, bearer_token, hostname=DEFAULT_API_HOSTNAME, port=DEFAULT_API_PORT):
     """Process the CSV file and make API calls to merge patients"""
-    api_url = "https://localhost:44389/api/message"
+    api_url = f"https://{hostname}:{port}/api/message"
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {bearer_token}"
@@ -74,83 +79,95 @@ def merge_patients(input_file, bearer_token):
     merge_count = 0
     error_count = 0
 
-    try:
-        with open(input_file, 'r', newline='') as csvfile:
-            # Read CSV with comma delimiter
-            reader = csv.reader(csvfile, delimiter=',')
+    # Find duplicate PMS IDs first
+    print("Scanning for duplicate PMS IDs...")
+    duplicates = find_duplicate_pms_ids(input_file)
 
-            for row_num, row in enumerate(reader, 1):
-                if len(row) < 2:
-                    print(
-                        f"Warning: Row {row_num} does not have enough columns. Skipping.")
-                    continue
+    if not duplicates:
+        print("No duplicate PMS IDs found. Nothing to merge.")
+        return True
 
-                src_patient_id = row[0].strip()
-                target_patient_id = row[1].strip()
+    print(f"Found {len(duplicates)} groups of duplicate PMS IDs to process.")
 
-                if not src_patient_id or not target_patient_id:
-                    print(
-                        f"Warning: Row {row_num} contains empty patient IDs. Skipping.")
-                    continue
+    # Process each group of duplicates
+    for base_id, entries in duplicates.items():
+        print(f"\nProcessing duplicate group for base ID: {base_id}")
 
-                # Prepare the JSON payload
-                payload = {
-                    "header": {
-                        "version": "1.0"
-                    },
-                    "message": {
-                        "contract": "patient",
-                        "operation": "merge.request",
-                        "context": {},
-                        "sourcePatientId": src_patient_id,
-                        "targetPatientId": target_patient_id
-                    }
+        # Find the target (no suffix) and sources (with suffix)
+        target_entry = None
+        source_entries = []
+
+        for row_data, pms_id in entries:
+            if pms_id == base_id:  # No suffix
+                target_entry = (row_data, pms_id)
+            else:  # Has suffix
+                source_entries.append((row_data, pms_id))
+
+        if not target_entry:
+            print(
+                f"Warning: No target patient found for base ID {base_id} (no unsuffixed ID). Skipping group.")
+            continue
+
+        if not source_entries:
+            print(
+                f"Warning: No source patients found for base ID {base_id} (no suffixed IDs). Skipping group.")
+            continue
+
+        target_patient_id = target_entry[1]
+
+        # Merge each source into the target
+        for source_row_data, src_patient_id in source_entries:
+            # Prepare the JSON payload
+            payload = {
+                "header": {
+                    "version": "1.0"
+                },
+                "message": {
+                    "contract": "patient",
+                    "operation": "merge.request",
+                    "context": {},
+                    "sourcePatientId": src_patient_id,
+                    "targetPatientId": target_patient_id
                 }
+            }
 
-                try:
-                    # Make the API call
-                    response = requests.put(
-                        api_url,
-                        headers=headers,
-                        json=payload,
-                        verify=False,  # Equivalent to --insecure in curl
-                        timeout=30
-                    )
+            try:
+                # Make the API call
+                response = requests.put(
+                    api_url,
+                    headers=headers,
+                    json=payload,
+                    verify=False,  # Equivalent to --insecure in curl
+                    timeout=30
+                )
 
-                    # Log the response
-                    log_entry = f"Row {row_num}: {src_patient_id} -> {target_patient_id}\n"
-                    log_entry += f"Status: {response.status_code}\n"
-                    log_entry += f"Response: {response.text}\n"
-                    log_entry += "-" * 50 + "\n"
+                # Log the response
+                log_entry = f"Merge: {src_patient_id} -> {target_patient_id}\n"
+                log_entry += f"Status: {response.status_code}\n"
+                log_entry += f"Response: {response.text}\n"
+                log_entry += "-" * 50 + "\n"
 
-                    with open("merge_log.txt", "a") as log_file:
-                        log_file.write(log_entry)
+                with open("merge_log.txt", "a") as log_file:
+                    log_file.write(log_entry)
 
-                    if response.status_code == 200:
-                        merge_count += 1
-                        print(
-                            f"✓ Successfully merged patient {src_patient_id} -> {target_patient_id}")
-                    else:
-                        error_count += 1
-                        print(
-                            f"✗ Failed to merge patient {src_patient_id} -> {target_patient_id} (Status: {response.status_code})")
-
-                except requests.RequestException as e:
-                    error_count += 1
-                    error_msg = f"Row {row_num}: API call failed for {src_patient_id} -> {target_patient_id}: {str(e)}\n"
-
-                    with open("merge_error_log.txt", "a") as error_file:
-                        error_file.write(error_msg)
-
+                if response.status_code == 200:
+                    merge_count += 1
                     print(
-                        f"✗ API call failed for {src_patient_id} -> {target_patient_id}: {e}")
+                        f"✓ Successfully merged patient {src_patient_id} -> {target_patient_id}")
+                else:
+                    error_count += 1
+                    print(
+                        f"✗ Failed to merge patient {src_patient_id} -> {target_patient_id} (Status: {response.status_code})")
 
-    except FileNotFoundError:
-        print(f"Error: Input file '{input_file}' not found.")
-        return False
-    except Exception as e:
-        print(f"Error processing file: {e}")
-        return False
+            except requests.RequestException as e:
+                error_count += 1
+                error_msg = f"API call failed for {src_patient_id} -> {target_patient_id}: {str(e)}\n"
+
+                with open("merge_error_log.txt", "a") as error_file:
+                    error_file.write(error_msg)
+
+                print(
+                    f"✗ API call failed for {src_patient_id} -> {target_patient_id}: {e}")
 
     print(f"\nProcessing complete!")
     print(f"Successful merges: {merge_count}")
@@ -162,31 +179,37 @@ def merge_patients(input_file, bearer_token):
 
 def main():
     """Main function"""
-    print_banner()
-    input("Press Enter to continue...")
-    os.system('cls' if os.name == 'nt' else 'clear')
+    parser = argparse.ArgumentParser(
+        description="Merge duplicate patients using DTX API",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python merge_patients.py input.csv -t your_bearer_token
+  python merge_patients.py updated_patients.csv --token abc123token --hostname 192.168.1.100 --port 8080
+        """
+    )
 
-    print_instructions()
-    input("Press Enter to continue...")
-    os.system('cls' if os.name == 'nt' else 'clear')
+    parser.add_argument('input_file', help='Path to the CSV file containing patient data')
+    parser.add_argument('-t', '--token', required=True, help='Bearer token for API authentication')
+    parser.add_argument('--hostname', default=DEFAULT_API_HOSTNAME, help=f'API hostname (default: {DEFAULT_API_HOSTNAME})')
+    parser.add_argument('--port', default=DEFAULT_API_PORT, help=f'API port (default: {DEFAULT_API_PORT})')
 
-    # Get user input
-    input_file, bearer_token = get_user_input()
+    args = parser.parse_args()
 
     # Validate inputs
-    if not input_file:
+    if not args.input_file:
         print("Error: Input file name is required.")
         sys.exit(1)
 
-    if not bearer_token:
+    if not args.token:
         print("Error: Bearer token is required.")
         sys.exit(1)
 
-    if not validate_input_file(input_file):
+    if not validate_input_file(args.input_file):
         sys.exit(1)
 
     # Process the merge requests
-    success = merge_patients(input_file, bearer_token)
+    success = merge_patients(args.input_file, args.token, args.hostname, args.port)
 
     if not success:
         sys.exit(1)
