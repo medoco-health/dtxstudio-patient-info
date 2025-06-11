@@ -81,8 +81,8 @@ def load_pms_data(pms_file: str) -> Dict[str, Union[dict, List[dict]]]:
                 custom_identifier = row.get('custom_identifier', '')
                 ssn = row.get('ssn', '')
 
-                # Warn about missing date of birth
-                if not dob.strip():
+                # Warn about missing date of birth only for patients with valid names
+                if not dob.strip() and family_name.strip() and given_name.strip():
                     logging.warning(
                         f"MISSING_DOB: {given_name} {family_name} [{custom_identifier}] - Patient has no date of birth")
 
